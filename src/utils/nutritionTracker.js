@@ -2,9 +2,13 @@ import { getNutritionFromGemini } from './gemini'
 const KEY = 'nutrition-tracker-v2'
 
 export function getTodayDate() {
-  return new Date().toISOString().split('T')[0] // YYYY-MM-DD
+    const today = new Date()
+    const yyyy = today.getFullYear()
+    const mm = String(today.getMonth() + 1).padStart(2, '0')
+    const dd = String(today.getDate()).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
 }
-
+  
 export function getTrackerHistory() {
   const raw = localStorage.getItem(KEY)
   return raw ? JSON.parse(raw) : []
