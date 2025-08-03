@@ -4,18 +4,20 @@ export function getNutritionHistory() {
   }
   
   export function saveToHistory(dishName, nutrition) {
-    const existing = getNutritionHistory()
-    const isDuplicate = existing.some(
-      (entry) => entry.dish.toLowerCase() === dishName.toLowerCase()
-    )
+    const existing = getNutritionHistory();
   
-    const updated = isDuplicate
-      ? existing
-      : [{ dish: dishName, nutrition }, ...existing].slice(0, 20)
+    // Remove old entry if it exists (case-insensitive match)
+    const filtered = existing.filter(
+      (entry) => entry.dish.toLowerCase() !== dishName.toLowerCase()
+    );
   
-    localStorage.setItem('nutritionHistory', JSON.stringify(updated))
-    return updated.map((e) => e.dish)
+    // Add updated entry to the top and keep only 20
+    const updated = [{ dish: dishName, nutrition }, ...filtered].slice(0, 20);
+  
+    localStorage.setItem('nutritionHistory', JSON.stringify(updated));
+    return updated.map((e) => e.dish);
   }
+  
   
   export function getNutritionForDish(dishName) {
     const existing = getNutritionHistory()
