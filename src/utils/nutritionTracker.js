@@ -23,5 +23,6 @@ export const nutrientMap = [
     { key: "carbs", label: "Carbs", unit: "g", color: "#ff8042" },
     { key: "vitamin", label: "Vitamins", unit: "g", color: "#00bcd4" },
     { key: "minerals", label: "Minerals", unit: "g", color: "#4caf50" },
-  ];
+    { key: "fiber", label: "Fiber", unit: "g", color: "#a1887f" },
+];
   
