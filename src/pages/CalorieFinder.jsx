@@ -16,6 +16,8 @@ export default function CalorieFinder() {
   const [result, setResult] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [previousSearches, setPreviousSearches] = useState([])
+  const [quantity, setQuantity] = useState(1)
+  const [unit, setUnit] = useState('bowl')
 
   useEffect(() => {
     const entries = getNutritionHistory()
@@ -26,16 +28,17 @@ export default function CalorieFinder() {
     if (!dish.trim()) return
 
     setIsLoading(true)
-    const nutrition = await getNutritionFromGemini(dish)
+    const nutrition = await getNutritionFromGemini(dish, quantity, unit);
     setIsLoading(false)
 
     if (nutrition) {
-      setResult(nutrition)
-      const updated = saveToHistory(dish, nutrition)
-      setPreviousSearches(updated)
+      const fullDish = `${quantity} ${unit} of ${dish}`.trim();
+      setResult(nutrition);
+      const updated = saveToHistory(fullDish, nutrition);
+      setPreviousSearches(updated);
     } else {
-      alert('Error getting nutrition data')
-    }
+      alert('Error getting nutrition data');
+    }    
   }
 
   const handleGenerateFromClick = (dishName) => {
@@ -53,6 +56,10 @@ export default function CalorieFinder() {
       <DishInput
         dish={dish}
         setDish={setDish}
+        quantity={quantity}
+        setQuantity={setQuantity}
+        unit={unit}
+        setUnit={setUnit}
         handleGenerate={handleGenerate}
         isLoading={isLoading}
       />

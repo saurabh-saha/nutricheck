@@ -2,9 +2,14 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY)
 
-export const getNutritionFromGemini = async (dish) => {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
-  const prompt = `Give a nutrition breakdown for the dish in strictly this JSON format:
+export const getNutritionFromGemini = async (dish, quantity = 1, unit = 'bowl') => {
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+  const fullQuery = `${quantity} ${unit} of ${dish}`;
+
+  const prompt = `
+    Give a nutrition breakdown for the following serving: "${fullQuery}".
+    Return strictly this JSON format:
 
     {
       "calories": ,
@@ -13,19 +18,20 @@ export const getNutritionFromGemini = async (dish) => {
       "fat": "{}g",
       "fiber": "{}g"
     }
-  
-  Strictly return only this JSON object — do not include explanations, extra text, or nested structures.
-  `;  
+
+    Strictly return only this JSON object — do not include explanations, extra text, or nested structures.
+  `;
 
   try {
     const result = await model.generateContent(prompt);
     const text = result.response.text();
     return extractJsonFromText(text);
   } catch (err) {
-    console.error('Gemini SDK error:', err)
-    return null
+    console.error('Gemini SDK error:', err);
+    return null;
   }
-}
+};
+
 
 export const extractJsonFromText = (text) => {
   try {
