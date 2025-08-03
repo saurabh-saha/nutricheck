@@ -1,6 +1,11 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
-
+import { nutrientMap } from '../utils/nutritionTracker';
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY)
+
+const jsonTemplate = nutrientMap.reduce((acc, { key }) => {
+  acc[key] = 0;
+  return acc;
+}, {});
 
 export const getNutritionFromGemini = async (dish, quantity = 1, unit = 'bowl') => {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
@@ -8,21 +13,13 @@ export const getNutritionFromGemini = async (dish, quantity = 1, unit = 'bowl') 
   const fullQuery = `${quantity} ${unit} of ${dish}`;
 
   const prompt = `
-    Give a nutrition breakdown for the following serving: "${fullQuery}".
-    Return strictly this JSON format:
+  Give a nutrition breakdown for the following serving: "${fullQuery}".
+  Return strictly this JSON format:
 
-    {
-      "calories": 0,
-      "protein": 0,
-      "carbs": 0,
-      "fat": 0,
-      "fiber": 0,
-      "minerals": 0,
-      "vitamin": 0
-    }
+  ${JSON.stringify(jsonTemplate, null, 2)}
 
-    All values must be integers. Use grams (g) for everything and kcal for calories. Do not include any units in the values. 
-    Strictly return only this JSON object — no explanations, no extra text, no nested structures.
+  All values must be integers. Use grams (g) for everything and kcal for calories. Do not include any units in the values.
+  Strictly return only this JSON object — no explanations, no extra text, no nested structures.
   `;
 
   try {

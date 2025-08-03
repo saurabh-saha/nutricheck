@@ -8,6 +8,7 @@ import {
   getTodayDate
 } from '../utils/nutritionTracker.js'
 import { NutritionStackedChart} from '../components/NutritionTrendChart'
+import { nutrientMap } from '../utils/nutritionTracker';
 
 const recommendedIntake = {
   calories: 2200,
@@ -113,14 +114,14 @@ export default function NutritionTracker() {
       {/* Recommended vs Today */}
       <h2 className="text-md font-semibold mb-2">Today vs Recommended</h2>
       <div className="grid grid-cols-2 text-sm gap-2 mb-4">
-        {Object.keys(recommendedIntake).map((key) => (
-          <div key={key} className="flex justify-between border p-2 rounded">
-            <span className="capitalize">{key}</span>
-            <span>
-              {todayData[key] || 0} / {recommendedIntake[key]}
-              {key === 'calories' ? 'kcal' : 'g'}
-            </span>
-          </div>
+          {nutrientMap.map(({ key, label, unit }) => (
+            <div key={key} className="flex justify-between border p-2 rounded">
+              <span className="capitalize">{label}</span>
+              <span>
+                {todayData[key] || 0} / {recommendedIntake[key]}
+                {unit}
+              </span>
+            </div>
         ))}
       </div>
 

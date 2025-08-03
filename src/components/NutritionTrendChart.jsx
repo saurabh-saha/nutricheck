@@ -4,6 +4,7 @@ import {
     BarChart, LineChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
     ResponsiveContainer
 } from 'recharts'
+import { nutrientMap } from '../utils/nutritionTracker';
 
 export function NutritionTrendChart({ data }) {
     return (
@@ -36,8 +37,9 @@ export function NutritionStackedChart({ data }) {
             <XAxis dataKey="date" />
             <YAxis />
             <Tooltip formatter={(value, name) => {
-                const unit = name === 'calories' ? 'kcal' : 'g';
-                return [`${value}${unit}`, name]
+                const match = nutrientMap.find(n => n.key === name);
+                const unit = match ? match.unit : '';
+                return [`${value}${unit}`, name];
             }} />
             <Legend />
             <Bar dataKey="calories" stackId="a" fill="#8884d8" />
