@@ -1,3 +1,4 @@
+import { getNutritionFromGemini } from './gemini'
 const KEY = 'nutrition-tracker-v2'
 
 export function getTodayDate() {
@@ -66,3 +67,37 @@ export const computeSummary = (entries) => {
   
     return sum
 }
+
+export const recommendedIntake = {
+    calories: 2200,
+    protein: 50,
+    fat: 70,
+    carbs: 300,
+    vitamins: 100,
+    minerals: 100
+  }
+
+
+export async function handleAddEntry({ dish, quantity, unit, setLoading, setHistory, setTodayData, onSuccess, onError }) {
+    if (!dish.trim()) return
+  
+    setLoading(true)
+    const nutrition = await getNutritionFromGemini(dish, quantity, unit)
+    setLoading(false)
+  
+    if (nutrition) {
+      const fullDish = `${quantity} ${unit} of ${dish}`
+      const newEntry = { date: getTodayDate(), dish: fullDish, nutrition }
+      const updated = saveToTracker(newEntry)
+  
+      setHistory(updated)
+  
+      const today = updated.filter(e => e.date === getTodayDate())
+      setTodayData(computeSummary(today))
+  
+      onSuccess?.()
+    } else {
+      onError?.()
+    }
+  }
+  

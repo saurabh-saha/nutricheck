@@ -2,12 +2,16 @@
 import { Routes, Route } from 'react-router-dom'
 import CalorieFinder from './pages/CalorieFinder'
 import NutritionTracker from './pages/NutritionTracker'
+import { Toaster } from "./components/ui/toaster"
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<CalorieFinder />} />
-      <Route path="/track" element={<NutritionTracker />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<CalorieFinder />} />
+        <Route path="/track" element={<NutritionTracker />} />
+      </Routes>
+      <Toaster />
+    </>
   )
 }
