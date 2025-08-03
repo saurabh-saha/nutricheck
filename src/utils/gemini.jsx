@@ -12,14 +12,17 @@ export const getNutritionFromGemini = async (dish, quantity = 1, unit = 'bowl') 
     Return strictly this JSON format:
 
     {
-      "calories": ,
-      "protein": "{}g",
-      "carbs": "{}g",
-      "fat": "{}g",
-      "fiber": "{}g"
+      "calories": 0,
+      "protein": 0,
+      "carbs": 0,
+      "fat": 0,
+      "fiber": 0,
+      "minerals": 0,
+      "vitamin": 0
     }
 
-    Strictly return only this JSON object — do not include explanations, extra text, or nested structures.
+    All values must be integers. Use grams (g) for everything and kcal for calories. Do not include any units in the values. 
+    Strictly return only this JSON object — no explanations, no extra text, no nested structures.
   `;
 
   try {
