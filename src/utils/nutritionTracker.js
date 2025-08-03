@@ -25,4 +25,44 @@ export const nutrientMap = [
     { key: "minerals", label: "Minerals", unit: "g", color: "#4caf50" },
     { key: "fiber", label: "Fiber", unit: "g", color: "#a1887f" },
 ];
+
+export function getLast7DaysSummary(history) {
+    const days = {}
   
+    history.forEach(e => {
+      if (!days[e.date]) days[e.date] = []
+      days[e.date].push(e)
+    })
+  
+    const sorted = Object.entries(days).sort(([d1], [d2]) => d1.localeCompare(d2))
+    const last7 = sorted.slice(-7)
+  
+    return last7.map(([date, entries]) => ({
+      date,
+      ...computeSummary(entries)
+    }))
+}
+
+export const computeSummary = (entries) => {
+    const sum = {
+      calories: 0, protein: 0, fat: 0, carbs: 0,
+      vitamins: 0, minerals: 0
+    }
+  
+    entries.forEach(e => {
+      for (let key in sum) {
+        let value = e.nutrition[key]
+  
+        if (typeof value === 'string') {
+          // Strip non-numeric characters (like "g", "%", etc.)
+          value = parseFloat(value.replace(/[^\d.-]/g, ''))
+        }
+  
+        if (!isNaN(value)) {
+          sum[key] += value
+        }
+      }
+    })
+  
+    return sum
+}

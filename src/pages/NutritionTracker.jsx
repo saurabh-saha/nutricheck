@@ -8,7 +8,7 @@ import {
   getTodayDate
 } from '../utils/nutritionTracker.js'
 import { NutritionBarChart} from '../components/NutritionTrendChart'
-import { nutrientMap } from '../utils/nutritionTracker';
+import { nutrientMap, computeSummary, getLast7DaysSummary } from '../utils/nutritionTracker';
 
 const recommendedIntake = {
   calories: 2200,
@@ -36,30 +36,6 @@ export default function NutritionTracker() {
     const summary = computeSummary(today)
     setTodayData(summary)
   }, [])
-
-  const computeSummary = (entries) => {
-    const sum = {
-      calories: 0, protein: 0, fat: 0, carbs: 0,
-      vitamins: 0, minerals: 0
-    }
-  
-    entries.forEach(e => {
-      for (let key in sum) {
-        let value = e.nutrition[key]
-  
-        if (typeof value === 'string') {
-          // Strip non-numeric characters (like "g", "%", etc.)
-          value = parseFloat(value.replace(/[^\d.-]/g, ''))
-        }
-  
-        if (!isNaN(value)) {
-          sum[key] += value
-        }
-      }
-    })
-  
-    return sum
-  }
   
 
   const handleAdd = async () => {
@@ -85,21 +61,6 @@ export default function NutritionTracker() {
     }
   }
 
-  const getLast7Days = () => {
-    const days = {}
-    history.forEach(e => {
-      if (!days[e.date]) days[e.date] = []
-      days[e.date].push(e)
-    })
-
-    const result = []
-    Object.entries(days).slice(-7).forEach(([date, entries]) => {
-      result.push({ date, ...computeSummary(entries) })
-    })
-
-    return result
-  }
-
   return (
     <Layout>
       <h1 className="text-xl font-bold mb-4">📈 Nutrition Tracker</h1>
@@ -107,7 +68,7 @@ export default function NutritionTracker() {
       {/* Chart/Trend Table */}
       <h2 className="text-md font-semibold mb-2 text-black dark:text-white">7-Day Nutrition Breakdown</h2>
       <div className="mb-6">
-        <NutritionBarChart data={getLast7Days()} />
+        <NutritionBarChart data={getLast7DaysSummary(history)} />
       </div>
 
 
