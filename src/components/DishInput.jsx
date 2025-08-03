@@ -5,7 +5,7 @@ export default function DishInput({ dish, setDish, handleGenerate, isLoading }) 
             value={dish}
             onChange={(e) => setDish(e.target.value)}
             placeholder="Enter a dish..."
-            className="border rounded px-3 py-2 flex-1"
+            className="border rounded px-3 py-2 flex-1 bg-white text-gray-800 dark:text-gray-800 placeholder:text-gray-500 dark:placeholder:text-gray-500"
         />
         <button
             onClick={handleGenerate}
