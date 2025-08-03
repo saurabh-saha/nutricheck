@@ -7,7 +7,7 @@ import {
   saveToTracker,
   getTodayDate
 } from '../utils/nutritionTracker.js'
-import { NutritionStackedChart} from '../components/NutritionTrendChart'
+import { NutritionBarChart} from '../components/NutritionTrendChart'
 import { nutrientMap } from '../utils/nutritionTracker';
 
 const recommendedIntake = {
@@ -107,7 +107,7 @@ export default function NutritionTracker() {
       {/* Chart/Trend Table */}
       <h2 className="text-md font-semibold mb-2 text-black dark:text-white">7-Day Nutrition Breakdown</h2>
       <div className="mb-6">
-        <NutritionStackedChart data={getLast7Days()} />
+        <NutritionBarChart data={getLast7Days()} />
       </div>
 
 
