@@ -1,21 +1,15 @@
 import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
-import DishInput from '../components/DishInput'
 import {
   getTrackerHistory,
   getTodayDate
 } from '../utils/nutritionTracker.js'
 import { NutritionBarChart} from '../components/NutritionTrendChart'
-import { nutrientMap, computeSummary, getLast7DaysSummary, recommendedIntake, handleAddEntry } from '../utils/nutritionTracker';
+import { nutrientMap, computeSummary, getLast7DaysSummary, recommendedIntake } from '../utils/nutritionTracker';
 import AddFoodDialog from '../components/AddFoodDialog'
 
 
 export default function NutritionTracker() {
-  const [showInput, setShowInput] = useState(false)
-  const [dish, setDish] = useState('')
-  const [quantity, setQuantity] = useState(1)
-  const [unit, setUnit] = useState('bowl')
-  const [isLoading, setIsLoading] = useState(false)
   const [history, setHistory] = useState([])
   const [todayData, setTodayData] = useState({})
 
@@ -65,7 +59,6 @@ export default function NutritionTracker() {
             🍽️ {entry.dish}
           </div>
       ))}
-
 
       {/* Add Entry Button + Dialog */}
       <AddFoodDialog

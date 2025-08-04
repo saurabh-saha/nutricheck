@@ -32,7 +32,6 @@ function ServingSizeDropdown({ quantity, setQuantity, unit, setUnit }) {
           onChange={(e) => setUnit(e.target.value)}
           className="border rounded px-3 py-2 flex-1 bg-white text-gray-800"
         >
-          <option value="">Unit</option>
           {units.map((u) => (
             <option key={u} value={u}>{u}</option>
           ))}
