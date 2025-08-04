@@ -51,6 +51,21 @@ export default function NutritionTracker() {
           </div>
         ))}
       </div>
+      
+      <h3 className="font-semibold mt-4 mb-2 text-gray-800 dark:text-gray-200">
+        Today's Entries
+      </h3>
+      {history
+        .filter(entry => entry.date === getTodayDate())
+        .map((entry, index) => (
+          <div
+            key={index}
+            className="text-sm text-gray-700 dark:text-gray-300 mb-1"
+          >
+            🍽️ {entry.dish}
+          </div>
+      ))}
+
 
       {/* Add Entry Button + Dialog */}
       <AddFoodDialog
