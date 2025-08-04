@@ -7,9 +7,7 @@ import {
 import { nutrientMap } from '../utils/nutritionTracker';
 import { useState } from "react";
   
-export function NutritionBarChart({ data }) {
-  const [selectedKey, setSelectedKey] = useState("calories");
-
+export function NutritionBarChart({ data, selectedKey, onChange }) {
   const current = nutrientMap.find(n => n.key === selectedKey);
 
   return (
@@ -22,7 +20,7 @@ export function NutritionBarChart({ data }) {
         <select
           id="nutrient-select"
           value={selectedKey}
-          onChange={(e) => setSelectedKey(e.target.value)}
+          onChange={(e) => onChange(e.target.value)}
           className="border rounded px-2 py-1 bg-white text-black dark:bg-gray-800 dark:text-white"
         >
           {nutrientMap.map(({ key, label }) => (
