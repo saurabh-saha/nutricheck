@@ -36,18 +36,22 @@ export const getDishSuggestionsFromGemini = async (dish) => {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
   const prompt = `
-  Suggest 3 possible variations for the dish: "${dish}".
-  For each variation, include:
+  Create exactly 3 dish suggestions based on "${dish}".
+  Rule:
+  1. The FIRST suggestion must be exactly the same dish "${dish}".
+  2. The second and third suggestions should be close variants (different styles, toppings, ingredients).
+  
+  For each suggestion, include:
   - name (string)
-  - image (royalty-free image URL, preferably from unsplash.com or wikipedia.org)
+  - image 
   - nutrition (object in this format):
     ${JSON.stringify(jsonTemplate, null, 2)}
 
-  Return strictly a JSON array in this format:
+  Output format: strictly a JSON array like this:
   [
     {
-      "name": "...",
-      "image": "...",
+      "name": "Dish Name",
+      "image": "https://example.com",
       "nutrition": { ... }
     },
     ...
@@ -56,18 +60,19 @@ export const getDishSuggestionsFromGemini = async (dish) => {
   Rules:
   - All nutrition values must be integers.
   - Use kcal for calories, grams (g) for all other values.
-  - Strictly return JSON only — no extra text.
+  - Strictly return JSON only — no explanations or extra text.
   `;
 
   try {
     const result = await model.generateContent(prompt);
     const text = result.response.text();
-    return extractJsonFromText(text); // This now should return an array
+    return extractJsonFromText(text); // should now always start with original dish
   } catch (err) {
     console.error('Gemini SDK error:', err);
     return [];
   }
 };
+
 
 
 

@@ -27,7 +27,7 @@ export default function AddFoodDialog({ setHistory, setTodayData }) {
         <DialogHeader>
           <DialogTitle>Add Food for Today</DialogTitle>
         </DialogHeader>
-
+        
         <DishInput
             onSelect={(dish, quantity, unit, nutrition) => {
                 handleAddEntry({
@@ -51,6 +51,7 @@ export default function AddFoodDialog({ setHistory, setTodayData }) {
                 }
                 });
             }}
+            onClose={() => closeRef.current?.click()} // animate + close modal
         />
 
         <DialogClose asChild>

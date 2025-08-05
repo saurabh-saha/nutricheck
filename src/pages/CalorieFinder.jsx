@@ -22,55 +22,32 @@ export default function CalorieFinder() {
     setPreviousSearches(updated);
   }
 
-  const handleGenerate = async () => {
-    if (!dish.trim()) return
+  return (
+      <Layout>
+        <h1 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          🍽️ <span>Calorie Finder</span>
+        </h1>
 
-    setIsLoading(true)
-    const nutrition = await getNutritionFromGemini(dish, quantity, unit);
-    setIsLoading(false)
+        <DishInput onSelect={handleDishSelect} />
 
-    if (nutrition) {
-      const fullDish = `${quantity} ${unit} of ${dish}`.trim();
-      setResult(nutrition);
-      const updated = saveToHistory(fullDish, nutrition);
-      setPreviousSearches(updated);
-    } else {
-      alert('Error getting nutrition data');
-    }    
-  }
+        <NutritionResult result={result} />
 
-  const handleGenerateFromClick = (dishName) => {
-    setDish(dishName)
-    const nutrition = getNutritionForDish(dishName)
-    if (nutrition) setResult(nutrition)
-  }
+        <PreviousSearches
+          searches={previousSearches}
+          onClick={(dishName) => {
+            // Load saved result from history without calling Gemini
+            const entries = getNutritionHistory();
+            const found = entries.find(e => e.dish === dishName);
+            if (found) setResult(found.nutrition);
+          }}
+        />
 
-return (
-    <Layout>
-      <h1 className="text-xl font-semibold mb-4 flex items-center gap-2">
-        🍽️ <span>Calorie Finder</span>
-      </h1>
-
-      <DishInput onSelect={handleDishSelect} />
-
-      <NutritionResult result={result} />
-
-      <PreviousSearches
-        searches={previousSearches}
-        onClick={(dishName) => {
-          // Load saved result from history without calling Gemini
-          const entries = getNutritionHistory();
-          const found = entries.find(e => e.dish === dishName);
-          if (found) setResult(found.nutrition);
-        }}
-      />
-
-      <Link
-        to="/track"
-        className="mt-6 inline-block text-sm text-blue-500 underline"
-      >
-        ➡️ Go to Nutrition Tracker
-      </Link>
-    </Layout>
-)
+        <Link
+          to="/track"
+          className="mt-6 inline-block text-sm text-blue-500 underline"
+        >
+          ➡️ Go to Nutrition Tracker
+        </Link>
+      </Layout>
+  )
 }
