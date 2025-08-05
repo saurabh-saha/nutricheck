@@ -34,7 +34,7 @@ export default function AddFoodDialog({ setHistory, setTodayData }) {
                 dish,
                 quantity,
                 unit,
-                setLoading: () => {}, // Not needed, DishInput handles its own loading
+                nutrition,
                 setHistory,
                 setTodayData,
                 onSuccess: () => {
@@ -51,7 +51,7 @@ export default function AddFoodDialog({ setHistory, setTodayData }) {
                 }
                 });
             }}
-            />
+        />
 
         <DialogClose asChild>
           <button

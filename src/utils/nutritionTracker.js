@@ -82,26 +82,20 @@ export const recommendedIntake = {
   }
 
 
-export async function handleAddEntry({ dish, quantity, unit, setLoading, setHistory, setTodayData, onSuccess, onError }) {
-    if (!dish.trim()) return
+export async function handleAddEntry({ 
+    dish, quantity, unit, nutrition, setHistory, setTodayData, onSuccess, onError 
+}) {
+    if (!dish.trim() || !nutrition) return;
   
-    setLoading(true)
-    const nutrition = await getNutritionFromGemini(dish, quantity, unit)
-    setLoading(false)
+    const fullDish = `${quantity} ${unit} of ${dish}`;
+    const newEntry = { date: getTodayDate(), dish: fullDish, nutrition };
+    const updated = saveToTracker(newEntry);
   
-    if (nutrition) {
-      const fullDish = `${quantity} ${unit} of ${dish}`
-      const newEntry = { date: getTodayDate(), dish: fullDish, nutrition }
-      const updated = saveToTracker(newEntry)
+    setHistory(updated);
+    const today = updated.filter(e => e.date === getTodayDate());
+    setTodayData(computeSummary(today));
   
-      setHistory(updated)
+    onSuccess?.();
+}
   
-      const today = updated.filter(e => e.date === getTodayDate())
-      setTodayData(computeSummary(today))
-  
-      onSuccess?.()
-    } else {
-      onError?.()
-    }
-  }
   

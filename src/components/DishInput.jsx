@@ -15,7 +15,7 @@ function FormInput({ value, onChange, placeholder, type = "text" }) {
 
 function ServingSizeDropdown({ quantity, setQuantity, unit, setUnit }) {
     const quantities = [0.25, 0.5, ...Array.from({ length: 200 }, (_, i) => i + 1)]
-    const units = ['bowl', 'g', 'cup', 'ml']
+    const units = ['bowl', 'g', 'cup', 'ml', 'piece']
   
     return (
       <>

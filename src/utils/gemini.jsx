@@ -32,6 +32,42 @@ export const getNutritionFromGemini = async (dish, quantity = 1, unit = 'bowl') 
   }
 };
 
+export const getDishSuggestionsFromGemini = async (dish, quantity = 1, unit = 'bowl') => {
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+  const prompt = `
+  The user typed: "${dish}"
+
+  Task:
+  1. Suggest 2 popular or commonly eaten variations of this food that match Indian eating habits (e.g., if "rice" → "plain rice", "egg fried rice").
+  2. For each suggestion:
+     - Provide a short name (string)
+     - Provide an image URL (royalty-free, real photo)
+     - Provide nutrition breakdown for ${quantity} ${unit} of the dish using this JSON structure:
+
+  {
+    "name": "",
+    "image": "",
+    "nutrition": ${JSON.stringify(jsonTemplate, null, 2)}
+  }
+
+  Rules:
+  - Nutrition values must be integers.
+  - Use "g" for everything except "calories" in kcal.
+  - Image URLs must be directly usable (jpg/png), no HTML.
+  - Return strictly a JSON array of 2 objects — no extra text or explanations.
+  `;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    return JSON.parse(text); // since we expect pure JSON array
+  } catch (err) {
+    console.error("Gemini suggestion error:", err);
+    return null;
+  }
+};
+
 
 export const extractJsonFromText = (text) => {
   try {
