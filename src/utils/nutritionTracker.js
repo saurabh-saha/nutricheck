@@ -1,4 +1,3 @@
-import { getNutritionFromGemini } from './gemini'
 const KEY = 'nutrition-tracker-v2'
 
 export function getTodayDate() {

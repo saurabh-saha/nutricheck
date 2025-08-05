@@ -13,13 +13,13 @@ export const getNutritionFromGemini = async (dish, quantity = 1, unit = 'bowl') 
   const fullQuery = `${quantity} ${unit} of ${dish}`;
 
   const prompt = `
-  Give a nutrition breakdown for the following serving: "${fullQuery}".
-  Return strictly this JSON format:
+    Give a nutrition breakdown for the following serving: "${fullQuery}".
+    Return strictly this JSON format:
 
-  ${JSON.stringify(jsonTemplate, null, 2)}
+    ${JSON.stringify(jsonTemplate, null, 2)}
 
-  All values must be integers. Use grams (g) for everything and kcal for calories. Do not include any units in the values.
-  Strictly return only this JSON object — no explanations, no extra text, no nested structures.
+    All values must be integers. Use grams (g) for everything and kcal for calories. Do not include any units in the values.
+    Strictly return only this JSON object — no explanations, no extra text, no nested structures.
   `;
 
   try {
@@ -32,41 +32,43 @@ export const getNutritionFromGemini = async (dish, quantity = 1, unit = 'bowl') 
   }
 };
 
-export const getDishSuggestionsFromGemini = async (dish, quantity = 1, unit = 'bowl') => {
+export const getDishSuggestionsFromGemini = async (dish) => {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
   const prompt = `
-  The user typed: "${dish}"
+  Suggest 3 possible variations for the dish: "${dish}".
+  For each variation, include:
+  - name (string)
+  - image (royalty-free image URL, preferably from unsplash.com or wikipedia.org)
+  - nutrition (object in this format):
+    ${JSON.stringify(jsonTemplate, null, 2)}
 
-  Task:
-  1. Suggest 2 popular or commonly eaten variations of this food that match Indian eating habits (e.g., if "rice" → "plain rice", "egg fried rice").
-  2. For each suggestion:
-     - Provide a short name (string)
-     - Provide an image URL (royalty-free, real photo)
-     - Provide nutrition breakdown for ${quantity} ${unit} of the dish using this JSON structure:
-
-  {
-    "name": "",
-    "image": "",
-    "nutrition": ${JSON.stringify(jsonTemplate, null, 2)}
-  }
+  Return strictly a JSON array in this format:
+  [
+    {
+      "name": "...",
+      "image": "...",
+      "nutrition": { ... }
+    },
+    ...
+  ]
 
   Rules:
-  - Nutrition values must be integers.
-  - Use "g" for everything except "calories" in kcal.
-  - Image URLs must be directly usable (jpg/png), no HTML.
-  - Return strictly a JSON array of 2 objects — no extra text or explanations.
+  - All nutrition values must be integers.
+  - Use kcal for calories, grams (g) for all other values.
+  - Strictly return JSON only — no extra text.
   `;
 
   try {
     const result = await model.generateContent(prompt);
     const text = result.response.text();
-    return JSON.parse(text); // since we expect pure JSON array
+    return extractJsonFromText(text); // This now should return an array
   } catch (err) {
-    console.error("Gemini suggestion error:", err);
-    return null;
+    console.error('Gemini SDK error:', err);
+    return [];
   }
 };
+
 
 
 export const extractJsonFromText = (text) => {

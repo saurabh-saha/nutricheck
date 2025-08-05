@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { getNutritionFromGemini } from '../utils/gemini.jsx'
+import { getDishSuggestionsFromGemini } from '../utils/gemini.jsx'
 
 function FormInput({ value, onChange, placeholder, type = "text" }) {
     return (
@@ -59,24 +59,24 @@ export default function DishInput({
     const handleSearch = async () => {
         if (!dish.trim()) return;
         setIsLoading(true);
-        const nutrition = await getNutritionFromGemini(dish, quantity, unit);
+        const suggestions = await getDishSuggestionsFromGemini(dish, quantity, unit);
         setIsLoading(false);
     
-        if (nutrition) {
-          setResult(nutrition);
+        if (suggestions.error) {
+            alert(`⚠️ Gemini API Error: ${suggestions.error}`);
+        } else if (Array.isArray(suggestions) && suggestions.length > 0) {
+            setResult(suggestions);
         } else {
-          alert("❌ Failed to fetch nutrition info");
+            alert("❌ No suggestions found");
         }
     };
 
-    const handleConfirmSelection = () => {
-        if (result) {
-          onSelect?.(dish, quantity, unit, result);
-          setDish("");
-          setQuantity(1);
-          setUnit("bowl");
-          setResult(null);
-        }
+    const handleConfirmSelection = (item) => {
+        onSelect?.(item.name, quantity, unit, item.nutrition);
+        setDish("");
+        setQuantity(1);
+        setUnit("bowl");
+        setResult(null);
     };
 
     return (
@@ -107,21 +107,31 @@ export default function DishInput({
           {isLoading ? 'Loading...' : 'Generate'}
         </button>
 
-        {/* Result Preview */}
-        {result && (
-            <div className="border rounded p-3 bg-gray-50 mt-2">
-            <h4 className="font-semibold mb-1">Nutrition Preview</h4>
-            <pre className="text-xs bg-white p-2 rounded overflow-auto">
-                {JSON.stringify(result, null, 2)}
-            </pre>
-            <button
-                onClick={handleConfirmSelection}
-                className="bg-green-600 text-white px-4 py-2 rounded w-full mt-2"
+        {/* Results List */}
+      {Array.isArray(result) && result.length > 0 && (
+        <div className="mt-4 grid gap-3">
+          {result.map((item, idx) => (
+            <div
+              key={idx}
+              className="flex items-center gap-3 p-3 border rounded bg-white shadow-sm hover:shadow-md transition cursor-pointer"
+              onClick={() => handleConfirmSelection(item)}
             >
-                ✅ Confirm & Add
-            </button>
+              <img
+                src={item.image}
+                alt={item.name}
+                className="w-16 h-16 object-cover rounded"
+              />
+              <div className="flex-1">
+                <h4 className="font-semibold text-gray-800">{item.name}</h4>
+                <p className="text-sm text-gray-500">
+                  {item.nutrition.calories} kcal
+                </p>
+              </div>
+              <span className="text-green-600 font-bold">Select</span>
             </div>
-        )}
+          ))}
+        </div>
+      )}
       </div>
     )
 }
