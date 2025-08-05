@@ -43,7 +43,7 @@ export const getDishSuggestionsFromGemini = async (dish) => {
   
   For each suggestion, include:
   - name (string)
-  - image 
+  - image (string): one of these file names [badfats.webp, calorie.webp, carbs.webp, fiber.webp, goodfats.jpg, minerals.jpg, protein.webp, vitamins.webp]
   - nutrition (object in this format):
     ${JSON.stringify(jsonTemplate, null, 2)}
 
@@ -51,7 +51,7 @@ export const getDishSuggestionsFromGemini = async (dish) => {
   [
     {
       "name": "Dish Name",
-      "image": "https://example.com",
+      "image": "calorie.webp",
       "nutrition": { ... }
     },
     ...
@@ -61,6 +61,7 @@ export const getDishSuggestionsFromGemini = async (dish) => {
   - All nutrition values must be integers.
   - Use kcal for calories, grams (g) for all other values.
   - Strictly return JSON only — no explanations or extra text.
+  - URLs should be tested and should not show to image found. otherwise default to 
   `;
 
   try {

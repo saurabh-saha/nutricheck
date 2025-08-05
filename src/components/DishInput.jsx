@@ -128,7 +128,7 @@ export default function DishInput({
                                 onClick={() => handleConfirmSelection(item)}
                             >
                                 <img
-                                    src={item.image}
+                                    src={`/${item.image}`}
                                     alt={item.name}
                                     className="w-16 h-16 object-cover rounded"
                                 />
