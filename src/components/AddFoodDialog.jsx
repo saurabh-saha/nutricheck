@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useRef } from "react"
 import {
   Dialog,
   DialogTrigger,
@@ -13,44 +13,7 @@ import DishInput from "./DishInput"
 import { handleAddEntry } from "../utils/nutritionTracker"
 
 export default function AddFoodDialog({ setHistory, setTodayData }) {
-  const [dish, setDish] = useState("")
-  const [quantity, setQuantity] = useState(1)
-  const [unit, setUnit] = useState("bowl")
-  const [isLoading, setIsLoading] = useState(false)
-
   const closeRef = useRef(null)
-
-  const handleAdd = async () => {
-    await handleAddEntry({
-      dish,
-      quantity,
-      unit,
-      setLoading: setIsLoading,
-      setHistory,
-      setTodayData,
-      onSuccess: () => {
-        // Reset local state
-        setDish("")
-        setQuantity(1)
-        setUnit("bowl")
-
-        // Close dialog
-        closeRef.current?.click()
-
-        // Optional: show a toast
-        toast({
-            title: "✅ Dish added successfully",
-            description: "Your food entry has been logged.",
-        })
-      },
-      onError: () => {
-        toast({
-            title: "❌ Failed to fetch nutrition info",
-            variant: "destructive",
-        })
-      }
-    })
-  }
 
   return (
     <Dialog>
@@ -66,15 +29,29 @@ export default function AddFoodDialog({ setHistory, setTodayData }) {
         </DialogHeader>
 
         <DishInput
-          dish={dish}
-          setDish={setDish}
-          quantity={quantity}
-          setQuantity={setQuantity}
-          unit={unit}
-          setUnit={setUnit}
-          handleGenerate={handleAdd}
-          isLoading={isLoading}
-        />
+            onSelect={(dish, quantity, unit, nutrition) => {
+                handleAddEntry({
+                dish,
+                quantity,
+                unit,
+                setLoading: () => {}, // Not needed, DishInput handles its own loading
+                setHistory,
+                setTodayData,
+                onSuccess: () => {
+                    toast({
+                    title: "✅ Dish added successfully",
+                    description: "Your food entry has been logged.",
+                    });
+                },
+                onError: () => {
+                    toast({
+                    title: "❌ Failed to fetch nutrition info",
+                    variant: "destructive",
+                    });
+                }
+                });
+            }}
+            />
 
         <DialogClose asChild>
           <button

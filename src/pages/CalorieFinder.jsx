@@ -4,25 +4,23 @@ import Layout from '../components/Layout'
 import DishInput from '../components/DishInput'
 import NutritionResult from '../components/NutritionResult'
 import PreviousSearches from '../components/PreviousSearches'
-import { getNutritionFromGemini } from '../utils/gemini.jsx'
-import {
-  saveToHistory,
-  getNutritionHistory,
-  getNutritionForDish
-} from '../utils/nutritionHistory'
+import { saveToHistory, getNutritionHistory } from '../utils/nutritionHistory'
 
 export default function CalorieFinder() {
-  const [dish, setDish] = useState('')
   const [result, setResult] = useState(null)
-  const [isLoading, setIsLoading] = useState(false)
   const [previousSearches, setPreviousSearches] = useState([])
-  const [quantity, setQuantity] = useState(1)
-  const [unit, setUnit] = useState('bowl')
 
   useEffect(() => {
     const entries = getNutritionHistory()
     setPreviousSearches(entries.map((e) => e.dish))
   }, [])
+
+  const handleDishSelect = (dish, quantity, unit, nutrition) => {
+    const fullDish = `${quantity} ${unit} of ${dish}`.trim();
+    setResult(nutrition);
+    const updated = saveToHistory(fullDish, nutrition);
+    setPreviousSearches(updated);
+  }
 
   const handleGenerate = async () => {
     if (!dish.trim()) return
@@ -47,28 +45,24 @@ export default function CalorieFinder() {
     if (nutrition) setResult(nutrition)
   }
 
-  return (
+return (
     <Layout>
       <h1 className="text-xl font-semibold mb-4 flex items-center gap-2">
         🍽️ <span>Calorie Finder</span>
       </h1>
 
-      <DishInput
-        dish={dish}
-        setDish={setDish}
-        quantity={quantity}
-        setQuantity={setQuantity}
-        unit={unit}
-        setUnit={setUnit}
-        handleGenerate={handleGenerate}
-        isLoading={isLoading}
-      />
+      <DishInput onSelect={handleDishSelect} />
 
       <NutritionResult result={result} />
 
       <PreviousSearches
         searches={previousSearches}
-        onClick={handleGenerateFromClick}
+        onClick={(dishName) => {
+          // Load saved result from history without calling Gemini
+          const entries = getNutritionHistory();
+          const found = entries.find(e => e.dish === dishName);
+          if (found) setResult(found.nutrition);
+        }}
       />
 
       <Link
@@ -78,5 +72,5 @@ export default function CalorieFinder() {
         ➡️ Go to Nutrition Tracker
       </Link>
     </Layout>
-  )
+)
 }

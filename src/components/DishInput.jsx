@@ -1,3 +1,6 @@
+import { useState } from "react"
+import { getNutritionFromGemini } from '../utils/gemini.jsx'
+
 function FormInput({ value, onChange, placeholder, type = "text" }) {
     return (
       <input
@@ -42,15 +45,40 @@ function ServingSizeDropdown({ quantity, setQuantity, unit, setUnit }) {
   
 
 export default function DishInput({ 
-    dish,
-    setDish,
-    quantity,
-    setQuantity,
-    unit,
-    setUnit,
-    handleGenerate,
-    isLoading
+    onSelect,
+    initialDish = "",
+    initialQuantity = 1,
+    initialUnit = "bowl"
   }) {
+    const [dish, setDish] = useState(initialDish);
+    const [quantity, setQuantity] = useState(initialQuantity);
+    const [unit, setUnit] = useState(initialUnit);
+    const [isLoading, setIsLoading] = useState(false);
+    const [result, setResult] = useState(null);
+
+    const handleSearch = async () => {
+        if (!dish.trim()) return;
+        setIsLoading(true);
+        const nutrition = await getNutritionFromGemini(dish, quantity, unit);
+        setIsLoading(false);
+    
+        if (nutrition) {
+          setResult(nutrition);
+        } else {
+          alert("❌ Failed to fetch nutrition info");
+        }
+    };
+
+    const handleConfirmSelection = () => {
+        if (result) {
+          onSelect?.(dish, quantity, unit, result);
+          setDish("");
+          setQuantity(1);
+          setUnit("bowl");
+          setResult(null);
+        }
+    };
+
     return (
       <div className="flex flex-col gap-2 w-full max-w-md">
         {/* Dish input */}
@@ -72,12 +100,28 @@ export default function DishInput({
   
         {/* Button */}
         <button
-          onClick={handleGenerate}
+          onClick={handleSearch}
           className="bg-blue-600 text-white px-4 py-2 rounded w-full"
           disabled={isLoading}
         >
           {isLoading ? 'Loading...' : 'Generate'}
         </button>
+
+        {/* Result Preview */}
+        {result && (
+            <div className="border rounded p-3 bg-gray-50 mt-2">
+            <h4 className="font-semibold mb-1">Nutrition Preview</h4>
+            <pre className="text-xs bg-white p-2 rounded overflow-auto">
+                {JSON.stringify(result, null, 2)}
+            </pre>
+            <button
+                onClick={handleConfirmSelection}
+                className="bg-green-600 text-white px-4 py-2 rounded w-full mt-2"
+            >
+                ✅ Confirm & Add
+            </button>
+            </div>
+        )}
       </div>
     )
 }
