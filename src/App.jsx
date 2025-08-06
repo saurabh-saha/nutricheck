@@ -11,16 +11,12 @@ export default function App() {
   const [welcome, setWelcome] = useState({ show: false, name: "" });
 
   useEffect(() => {
-    if (!sessionStorage.getItem("welcomeShown")) {
-      registerWelcomeHandler((data) => {
-        setWelcome(data);
-        sessionStorage.setItem("welcomeShown", "true");
-      });
-      initAuthRedirectHandler();
-    }
+    registerWelcomeHandler((data) => {
+      setWelcome(data);
+    });
+    initAuthRedirectHandler();
   }, []);
   
-
   return (
     <IntakeProvider>
       <Routes>
