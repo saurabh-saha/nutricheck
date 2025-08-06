@@ -1,43 +1,30 @@
-// src/context/ProfileContext.jsx
 import { createContext, useContext, useState, useEffect } from "react";
 
-const ProfileContext = createContext();
+const IntakeContext = createContext();
 
-export function ProfileProvider({ children }) {
-  const [profile, setProfile] = useState({
-    age: "",
-    sex: "male",
-    height: "",
-    weight: "",
-    bmi: null,
-    recommended: {
-      calories: 2200,
-      protein: 50,
-      fat: 70,
-      carbs: 300,
-      vitamins: 100,
-      minerals: 100
-    }
-  });
+export function IntakeProvider({ children }) {
+  const [recommendedIntake, setRecommendedIntake] = useState(null);
 
-  // Load profile from localStorage when app starts
+  // Load from localStorage on first render
   useEffect(() => {
-    const saved = localStorage.getItem("userProfile");
-    if (saved) setProfile(JSON.parse(saved));
+    const saved = localStorage.getItem("recommendedIntake");
+    if (saved) setRecommendedIntake(JSON.parse(saved));
   }, []);
 
-  // Save profile to localStorage whenever it changes
+  // Save to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem("userProfile", JSON.stringify(profile));
-  }, [profile]);
+    if (recommendedIntake) {
+      localStorage.setItem("recommendedIntake", JSON.stringify(recommendedIntake));
+    }
+  }, [recommendedIntake]);
 
   return (
-    <ProfileContext.Provider value={{ profile, setProfile }}>
+    <IntakeContext.Provider value={{ recommendedIntake, setRecommendedIntake }}>
       {children}
-    </ProfileContext.Provider>
+    </IntakeContext.Provider>
   );
 }
 
-export function useProfile() {
-  return useContext(ProfileContext);
+export function useIntake() {
+  return useContext(IntakeContext);
 }

@@ -1,8 +1,11 @@
-import { useState } from "react"
-import { nutrientMap, recommendedIntake, getTodayDate, getLast7DaysSummary } from "../utils/nutritionTracker"
+import { useIntake } from "../context/ProfileContext";
+import { nutrientMap, getTodayDate, getLast7DaysSummary, getDefaultIntake } from "../utils/nutritionTracker"
 import { NutritionBarChart } from "./NutritionTrendChart"
 
 export default function NutrientBreakdown({ history, todayData, selectedNutrient, setSelectedNutrient }) {
+  const { recommendedIntake } = useIntake();
+  const intake = recommendedIntake || getDefaultIntake();
+
   const filtered = history.filter(
     e => e.date === getTodayDate() && e.nutrition[selectedNutrient] > 0
   )
@@ -39,7 +42,7 @@ export default function NutrientBreakdown({ history, todayData, selectedNutrient
           >
             <span className="capitalize">{label}</span>
             <span>
-              {todayData[key] || 0} / {recommendedIntake[key]}
+              {todayData[key] || 0} / {intake[key]}
               {unit}
             </span>
           </div>

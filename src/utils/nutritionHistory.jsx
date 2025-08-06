@@ -61,9 +61,3 @@ export function getNutritionHistory() {
     };
   }
   
-  export function getSavedProfile() {
-    const savedProfile = localStorage.getItem("userProfile");
-    if (!savedProfile) return null;
-    return JSON.parse(savedProfile);
-  }
-  

@@ -5,7 +5,6 @@ import {
     ResponsiveContainer
 } from 'recharts'
 import { nutrientMap } from '../utils/nutritionTracker';
-import { useState } from "react";
   
 export function NutritionBarChart({ data, selectedKey, onChange }) {
   const current = nutrientMap.find(n => n.key === selectedKey);

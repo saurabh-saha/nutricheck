@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { calculatePersonalizedIntake } from "../utils/nutritionHistory";
 import Layout from '../components/Layout'
+import { useIntake } from "../context/ProfileContext";
 
 export default function Profile() {
   const [age, setAge] = useState("");
   const [sex, setSex] = useState("male");
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
-  const [activityLevel, setActivityLevel] = useState(1.2); // sedentary by default
+  const [activityLevel, setActivityLevel] = useState(1.2);
   const [goal, setGoal] = useState("maintain"); // lose / gain / maintain
   const [savedMsg, setSavedMsg] = useState("");
 
@@ -50,9 +51,16 @@ export default function Profile() {
     goal
   });  
 
+  const { setRecommendedIntake } = useIntake();
+
   const handleSave = () => {
     const profileData = { age, sex, height, weight, activityLevel, goal };
     localStorage.setItem("userProfile", JSON.stringify(profileData));
+    
+    if (personalizedIntake) {
+        setRecommendedIntake(personalizedIntake);
+    }
+
     setSavedMsg("Profile saved!");
     setTimeout(() => setSavedMsg(""), 2000);
   };

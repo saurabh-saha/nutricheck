@@ -1,11 +1,12 @@
-import { calculatePersonalizedIntake, getSavedProfile } from "../utils/nutritionHistory";
-
-const profile = getSavedProfile();
-
-export const recommendedIntake = profile
-  ? calculatePersonalizedIntake(profile)
-  : { calories: 2200, protein: 50, fat: 70, carbs: 300, vitamins: 100, minerals: 100 };
-
+export function getDefaultIntake() {
+  return {
+    calories: 2000,
+    protein: 50,
+    fat: 70,
+    carbs: 260,
+    fiber: 30
+  };
+}
 
 const KEY = 'nutrition-tracker-v2'
 
