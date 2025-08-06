@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { calculatePersonalizedIntake } from "../utils/nutritionHistory";
 import Layout from '../components/Layout'
 import { useIntake } from "../context/ProfileContext";
+import {saveProfileToFirestore} from "../utils/firebaseLogin"
 
 export default function Profile() {
   const [age, setAge] = useState("");
@@ -12,18 +13,32 @@ export default function Profile() {
   const [goal, setGoal] = useState("maintain"); // lose / gain / maintain
   const [savedMsg, setSavedMsg] = useState("");
 
-  // Load from localStorage on mount
   useEffect(() => {
-    const savedProfile = localStorage.getItem("userProfile");
-    if (savedProfile) {
-      const data = JSON.parse(savedProfile);
-      setAge(data.age || "");
-      setSex(data.sex || "male");
-      setHeight(data.height || "");
-      setWeight(data.weight || "");
-      setActivityLevel(data.activityLevel || 1.2);
-      setGoal(data.goal || "maintain");
+    async function loadProfile() {
+      // Try Firestore first
+      const data = await loadProfileFromFirestore();
+      if (data?.profile) {
+        setAge(data.profile.age || "");
+        setSex(data.profile.sex || "male");
+        setHeight(data.profile.height || "");
+        setWeight(data.profile.weight || "");
+        setActivityLevel(data.profile.activityLevel || 1.2);
+        setGoal(data.profile.goal || "maintain");
+      } else {
+        // Fallback to localStorage
+        const savedProfile = localStorage.getItem("userProfile");
+        if (savedProfile) {
+          const data = JSON.parse(savedProfile);
+          setAge(data.age || "");
+          setSex(data.sex || "male");
+          setHeight(data.height || "");
+          setWeight(data.weight || "");
+          setActivityLevel(data.activityLevel || 1.2);
+          setGoal(data.goal || "maintain");
+        }
+      }
     }
+    loadProfile();
   }, []);
 
   const calculateBMI = () => {
@@ -53,8 +68,9 @@ export default function Profile() {
 
   const { setRecommendedIntake } = useIntake();
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const profileData = { age, sex, height, weight, activityLevel, goal };
+    await saveProfileToFirestore(profileData, personalizedIntake);
     localStorage.setItem("userProfile", JSON.stringify(profileData));
     
     if (personalizedIntake) {

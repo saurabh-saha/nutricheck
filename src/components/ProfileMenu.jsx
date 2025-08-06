@@ -1,8 +1,12 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { loginWithGoogle, logout } from "../utils/firebaseLogin";
+import { auth } from "../utils/firebaseConfig";
+import { useAuthState } from "react-firebase-hooks/auth";
 
 export default function ProfileMenu() {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false);
+  const [user] = useAuthState(auth); // from react-firebase-hooks
 
   return (
     <div className="relative">
@@ -14,22 +18,52 @@ export default function ProfileMenu() {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded shadow-md z-50">
+        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded shadow-md z-50">
+          <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+            {user ? (
+              <p className="text-sm text-gray-600 dark:text-gray-300">{user.email}</p>
+            ) : (
+              <p className="text-sm text-gray-500 italic">Not logged in</p>
+            )}
+          </div>
+
           <ul className="py-2 text-sm text-gray-700 dark:text-gray-200">
-          <li>
-              <Link
-                to="/profile"
-                className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
-                onClick={() => setOpen(false)}
+            {user ? (
+              <>
+                <li>
+                  <Link
+                    to="/profile"
+                    className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={() => setOpen(false)}
+                  >
+                    Profile
+                  </Link>
+                </li>
+                <li className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">Settings</li>
+                <li
+                  onClick={() => {
+                    logout();
+                    setOpen(false);
+                  }}
+                  className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                >
+                  Logout
+                </li>
+              </>
+            ) : (
+              <li
+                onClick={() => {
+                  loginWithGoogle();
+                  setOpen(false);
+                }}
+                className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
               >
-                Profile
-              </Link>
-            </li>            
-            <li className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">Settings</li>
-            <li className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">Logout</li>
+                Login with Google
+              </li>
+            )}
           </ul>
         </div>
       )}
     </div>
-  )
+  );
 }
