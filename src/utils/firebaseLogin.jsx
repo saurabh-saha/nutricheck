@@ -1,15 +1,16 @@
 import { 
   GoogleAuthProvider, 
-  signInWithPopup, 
-  signInWithRedirect,  
-  signOut, 
-  getRedirectResult, 
-  onAuthStateChanged 
+  signInWithPopup,
+  signOut
 } from "firebase/auth";
 import { auth, db } from "./firebaseConfig";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 
 const provider = new GoogleAuthProvider();
+// Always force account chooser to appear
+provider.setCustomParameters({
+  prompt: "select_account"
+});
 
 let setWelcomeState = null;
 
@@ -19,20 +20,15 @@ export function registerWelcomeHandler(fn) {
 
 export async function loginWithGoogle() {
   try {
-    if (window.innerWidth < 768) {
-      // Mobile → redirect
-      return signInWithRedirect(auth, provider);
-    } else {
-      // Desktop → popup
-      const result = await signInWithPopup(auth, provider);
-      await createUserIfNew(result.user);
+    const result = await signInWithPopup(auth, provider);
+    await createUserIfNew(result.user);
 
-      if (setWelcomeState) {
-        setWelcomeState({
-          show: true,
-          name: result.user.displayName || result.user.email
-        });
-      }
+    // Trigger welcome modal if handler is set
+    if (setWelcomeState) {
+      setWelcomeState({
+        show: true,
+        name: result.user.displayName || result.user.email  
+      });
     }
   } catch (error) {
     console.error("Google login error:", error);
@@ -45,36 +41,6 @@ async function createUserIfNew(user) {
   if (!snap.exists()) {
     await setDoc(ref, { createdAt: serverTimestamp() });
   }
-}
-
-export async function handleRedirectResult() {
-  try {
-    const result = await getRedirectResult(auth);
-    console.log("Redirect result:", result);
-
-    if (result?.user) {
-      await createUserIfNew(result.user);
-
-      if (setWelcomeState) {
-        setWelcomeState({
-          show: true,
-          name: result.user.displayName || result.user.email
-        });
-      }
-    }
-  } catch (error) {
-    console.error("Google redirect login error:", error);
-  }
-}
-
-export function initAuthRedirectHandler() {
-  onAuthStateChanged(auth, (user) => {
-    // On mobile redirect, this fires after auth restores the user
-    if (!sessionStorage.getItem("redirectHandled") && user) {
-      sessionStorage.setItem("redirectHandled", "true");
-      handleRedirectResult();
-    }
-  });
 }
 
 export function logout() {

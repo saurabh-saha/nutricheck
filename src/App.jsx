@@ -5,18 +5,16 @@ import Profile from "./pages/Profile";
 import CalorieFinder from "./pages/CalorieFinder";
 import WelcomeModal from "./components/WelcomeModal";
 import { useState, useEffect } from "react";
-import { registerWelcomeHandler, initAuthRedirectHandler } from "./utils/firebaseLogin";
+import { registerWelcomeHandler } from "./utils/firebaseLogin";
 
 export default function App() {
   const [welcome, setWelcome] = useState({ show: false, name: "" });
 
+  // Register the handler once so loginWithGoogle can trigger the modal
   useEffect(() => {
-    registerWelcomeHandler((data) => {
-      setWelcome(data);
-    });
-    initAuthRedirectHandler();
+    registerWelcomeHandler(setWelcome);
   }, []);
-  
+
   return (
     <IntakeProvider>
       <Routes>
