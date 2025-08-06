@@ -32,12 +32,12 @@ export function saveToTracker(entry) {
 
 export const nutrientMap = [
   { key: "calories", label: "Calories", unit: "kcal", color: "#FF6B6B" },   // Coral Red
-  { key: "protein", label: "Protein", unit: "g", color: "#4ECDC4" },        // Aqua Blue
-  { key: "fat", label: "Fat", unit: "g", color: "#FFD93D" },                 // Gold Yellow
-  { key: "carbs", label: "Carbs", unit: "g", color: "#6BCB77" },             // Fresh Green
-  { key: "vitamin", label: "Vitamins", unit: "g", color: "#C77DFF" },        // Soft Purple
-  { key: "minerals", label: "Minerals", unit: "g", color: "#5E60CE" },       // Slate Blue
-  { key: "fiber", label: "Fiber", unit: "g", color: "#FFA351" },             // Soft Orange
+  { key: "protein", label: "Protein", unit: "g", color: "#FF6B6B" },        // Aqua Blue
+  { key: "fat", label: "Fat", unit: "g", color: "#FF6B6B" },                 // Gold Yellow
+  { key: "carbs", label: "Carbs", unit: "g", color: "#FF6B6B" },             // Fresh Green
+  { key: "vitamin", label: "Vitamins", unit: "g", color: "#FF6B6B" },        // Soft Purple
+  { key: "minerals", label: "Minerals", unit: "g", color: "#FF6B6B" },       // Slate Blue
+  { key: "fiber", label: "Fiber", unit: "g", color: "#FF6B6B" },             // Soft Orange
 ];
 
 
