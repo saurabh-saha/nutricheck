@@ -40,22 +40,16 @@ export function NutritionBarChart({ data, selectedKey, recommendedIntake }) {
               }}
             />
             <YAxis 
-              domain={[0, 'dataMax + 200']} 
+              domain={[
+                0,
+                dataMax => Math.ceil(dataMax * 1.1) // 10% headroom
+              ]}
               tick={{ fontSize: 12, fontWeight: 500 }}
               tickLine={false}
               axisLine={{ stroke: 'var(--color-border)' }}
               className="text-gray-800 dark:text-gray-200"
             />
-            <Tooltip 
-              contentStyle={{
-                backgroundColor: 'var(--color-bg)',
-                border: 'none',
-                borderRadius: '8px',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-              }}
-              labelStyle={{ fontWeight: 'bold', color: 'var(--color-text)' }}
-              formatter={(value) => [`${value}${current.unit}`, current.label]}
-            />
+
             
             {/* Dotted Recommendation Line */}
             {recommendation > 0 && (
