@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { calculatePersonalizedIntake } from "../utils/nutritionHistory";
 import Layout from '../components/Layout'
 import { useIntake } from "../context/ProfileContext";
-import {saveProfileToFirestore} from "../utils/firebaseLogin"
+import {saveProfileToFirestore, loadProfileFromFirestore} from "../utils/firebaseLogin"
 
 export default function Profile() {
   const [age, setAge] = useState("");
