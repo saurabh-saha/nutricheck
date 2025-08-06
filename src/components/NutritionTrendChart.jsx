@@ -34,6 +34,10 @@ export function NutritionBarChart({ data, selectedKey, recommendedIntake }) {
               tickLine={false}
               axisLine={{ stroke: 'var(--color-border)' }}
               className="text-gray-800 dark:text-gray-200"
+              tickFormatter={(dateStr) => {
+                const day = new Date(dateStr).toLocaleDateString('en-US', { weekday: 'short' });
+                return day; // e.g. "Mon", "Tue"
+              }}
             />
             <YAxis 
               domain={[0, 'dataMax + 200']} 
