@@ -24,8 +24,6 @@ export default function NutritionTracker() {
 
   return (
     <Layout>
-      <h1 className="text-xl font-bold mb-4">📈 Nutrition Tracker</h1>
-
       <NutrientBreakdown
         history={history}
         todayData={todayData}

@@ -14,15 +14,12 @@ export default function NutrientBreakdown({ history, todayData, selectedNutrient
   return (
     <div>
       {/* Chart Section */}
-      <h2 className="text-md font-semibold mb-2 text-black dark:text-white">
-        7-Day Nutrition Breakdown
-      </h2>
       <div className="mb-6">
-      <NutritionBarChart
-        data={getLast7DaysSummary(history)}
-        selectedKey={selectedNutrient}
-        onChange={setSelectedNutrient}
-      />
+        <NutritionBarChart
+          data={getLast7DaysSummary(history)}
+          selectedKey={selectedNutrient}
+          recommendedIntake={intake}
+        />
       </div>
 
       {/* Recommended vs Today */}

@@ -1,43 +1,91 @@
 // components/NutritionTrendChart.jsx
 import React from 'react'
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
-    ResponsiveContainer
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, ReferenceLine, LabelList
 } from 'recharts'
 import { nutrientMap } from '../utils/nutritionTracker';
-  
-export function NutritionBarChart({ data, selectedKey, onChange }) {
+
+export function NutritionBarChart({ data, selectedKey, recommendedIntake }) {
   const current = nutrientMap.find(n => n.key === selectedKey);
+  const recommendation = recommendedIntake[current.key] || 0;
 
   return (
-    <div className="w-full">
-      {/* Dropdown */}
-      <div className="mb-4">
-        <label htmlFor="nutrient-select" className="mr-2 font-medium text-black dark:text-white">
-            Select Nutrient:
-        </label>
-        <select
-          id="nutrient-select"
-          value={selectedKey}
-          onChange={(e) => onChange(e.target.value)}
-          className="border rounded px-2 py-1 bg-white text-black dark:bg-gray-800 dark:text-white"
-        >
-          {nutrientMap.map(({ key, label }) => (
-            <option key={key} value={key}>{label}</option>
-          ))}
-        </select>
+    <div className="w-full bg-white dark:bg-gray-800 rounded-xl shadow-md p-4">
+      {/* Header Row */}
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+          {current.label} Trend <span className="text-sm text-gray-500">({current.unit})</span>
+        </h3>
       </div>
 
       {/* Chart */}
-      <div className="w-full h-[300px]">
+      <div className="w-full h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 10, right: 20, bottom: 10, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis />
-            <Tooltip formatter={(value) => [`${value}${current.unit}`, current.label]} />
-            <Legend />
-            <Bar dataKey={selectedKey} fill={current.color} />
+          <BarChart data={data}>
+            <CartesianGrid 
+              strokeDasharray="3 3" 
+              stroke="#e0e0e0"
+              className="dark:stroke-gray-600"
+            />
+            <XAxis 
+              dataKey="date" 
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+              axisLine={{ stroke: 'var(--color-border)' }}
+              className="text-gray-800 dark:text-gray-200"
+            />
+            <YAxis 
+              domain={[0, 'dataMax + 200']} 
+              tick={{ fontSize: 12, fontWeight: 500 }}
+              tickLine={false}
+              axisLine={{ stroke: 'var(--color-border)' }}
+              className="text-gray-800 dark:text-gray-200"
+            />
+            <Tooltip 
+              contentStyle={{
+                backgroundColor: 'var(--color-bg)',
+                border: 'none',
+                borderRadius: '8px',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+              }}
+              labelStyle={{ fontWeight: 'bold', color: 'var(--color-text)' }}
+              formatter={(value) => [`${value}${current.unit}`, current.label]}
+            />
+            
+            {/* Dotted Recommendation Line */}
+            {recommendation > 0 && (
+              <ReferenceLine 
+                y={recommendation} 
+                stroke="#ff4d4f" 
+                strokeDasharray="4 4" 
+                label={{
+                  value: `Goal: ${recommendation}${current.unit}`,
+                  position: 'right',
+                  fill: '#ff4d4f',
+                  fontSize: 12
+                }}
+              />
+            )}
+
+            <Bar 
+              dataKey={selectedKey} 
+              fill={current.color} 
+              radius={[6, 6, 0, 0]} 
+              animationDuration={600}
+            >
+              {/* Value labels on top of bars */}
+              <LabelList 
+                dataKey={selectedKey} 
+                position="top" 
+                formatter={(val) => `${val}`} 
+                className="fill-gray-800 dark:fill-gray-200" 
+                style={{
+                  fontSize: 12,
+                  fontWeight: 500
+                }}
+              />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>

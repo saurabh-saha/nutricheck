@@ -31,14 +31,15 @@ export function saveToTracker(entry) {
 }
 
 export const nutrientMap = [
-    { key: "calories", label: "Calories", unit: "kcal", color: "#8884d8" },
-    { key: "protein", label: "Protein", unit: "g", color: "#82ca9d" },
-    { key: "fat", label: "Fat", unit: "g", color: "#ffc658" },
-    { key: "carbs", label: "Carbs", unit: "g", color: "#ff8042" },
-    { key: "vitamin", label: "Vitamins", unit: "g", color: "#00bcd4" },
-    { key: "minerals", label: "Minerals", unit: "g", color: "#4caf50" },
-    { key: "fiber", label: "Fiber", unit: "g", color: "#a1887f" },
+  { key: "calories", label: "Calories", unit: "kcal", color: "#FF6B6B" },   // Coral Red
+  { key: "protein", label: "Protein", unit: "g", color: "#4ECDC4" },        // Aqua Blue
+  { key: "fat", label: "Fat", unit: "g", color: "#FFD93D" },                 // Gold Yellow
+  { key: "carbs", label: "Carbs", unit: "g", color: "#6BCB77" },             // Fresh Green
+  { key: "vitamin", label: "Vitamins", unit: "g", color: "#C77DFF" },        // Soft Purple
+  { key: "minerals", label: "Minerals", unit: "g", color: "#5E60CE" },       // Slate Blue
+  { key: "fiber", label: "Fiber", unit: "g", color: "#FFA351" },             // Soft Orange
 ];
+
 
 export function getLast7DaysSummary(history) {
     const days = {}
@@ -58,11 +59,12 @@ export function getLast7DaysSummary(history) {
 }
 
 export const computeSummary = (entries) => {
-    const sum = {
-      calories: 0, protein: 0, fat: 0, carbs: 0,
-      vitamins: 0, minerals: 0
-    }
-  
+    const sum = {};
+    
+    // Initialize all nutrients from nutrientMap
+    nutrientMap.forEach(({ key }) => {
+      sum[key] = 0;
+    });
     entries.forEach(e => {
       for (let key in sum) {
         let value = e.nutrition[key]
