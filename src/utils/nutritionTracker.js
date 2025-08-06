@@ -1,3 +1,12 @@
+import { calculatePersonalizedIntake, getSavedProfile } from "../utils/nutritionHistory";
+
+const profile = getSavedProfile();
+
+export const recommendedIntake = profile
+  ? calculatePersonalizedIntake(profile)
+  : { calories: 2200, protein: 50, fat: 70, carbs: 300, vitamins: 100, minerals: 100 };
+
+
 const KEY = 'nutrition-tracker-v2'
 
 export function getTodayDate() {
@@ -70,16 +79,6 @@ export const computeSummary = (entries) => {
   
     return sum
 }
-
-export const recommendedIntake = {
-    calories: 2200,
-    protein: 50,
-    fat: 70,
-    carbs: 300,
-    vitamins: 100,
-    minerals: 100
-  }
-
 
 export async function handleAddEntry({ 
     dish, quantity, unit, nutrition, setHistory, setTodayData, onSuccess, onError 
