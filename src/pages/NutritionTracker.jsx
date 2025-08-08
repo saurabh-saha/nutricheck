@@ -3,6 +3,9 @@ import { useAuthState } from "react-firebase-hooks/auth";
 import { auth } from "../utils/firebaseConfig";
 import { loginWithGoogle } from "../utils/firebaseLogin";
 
+import { X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
 import Layout from '../components/Layout'
 import {
   getTrackerHistory,
@@ -14,6 +17,8 @@ import NutrientBreakdown from "../components/NutrientBreakdown"
 
 export default function NutritionTracker() {
   const [user] = useAuthState(auth);
+  const navigate = useNavigate();
+
   const [history, setHistory] = useState([])
   const [todayData, setTodayData] = useState({})
   const [selectedNutrient, setSelectedNutrient] = useState("calories")
@@ -29,6 +34,7 @@ export default function NutritionTracker() {
 
   return (
     <Layout>
+      {/* Main content - blurred and disabled if not logged in */}
       <div className={`relative ${!user ? 'filter blur-sm pointer-events-none select-none' : ''}`}>
         <NutrientBreakdown
           history={history}
@@ -43,9 +49,19 @@ export default function NutritionTracker() {
         />
       </div>
 
+      {/* Login modal overlay if not logged in */}
       {!user && (
         <div className="fixed inset-0 flex flex-col justify-center items-center bg-black bg-opacity-50 z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full p-6 text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full p-6 text-center relative">
+            {/* Close button top-right */}
+            <button
+              onClick={() => navigate("/")}
+              className="absolute top-4 right-4 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+              aria-label="Close login modal"
+            >
+              <X size={24} />
+            </button>
+
             <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
               Login Required
             </h2>
