@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import ProfileMenu from "../components/ProfileMenu";
+import { Menu } from "lucide-react"; // ⬅ Lucide icon
 
 export default function Header({ onMenuClick }) {
   return (
@@ -16,7 +17,7 @@ export default function Header({ onMenuClick }) {
               className="md:hidden p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
               onClick={onMenuClick}
             >
-              ☰
+              <Menu size={24} /> {/* Matches Lucide style */}
             </button>
 
             {/* Logo + Title clickable */}

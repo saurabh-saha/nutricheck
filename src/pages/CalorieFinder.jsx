@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { getNutritionHistory, saveToHistory } from '../utils/nutritionHistory'
 import Layout from '../components/Layout'
 import DishInput from '../components/DishInput'
 import NutritionResult from '../components/NutritionResult'
 import PreviousSearches from '../components/PreviousSearches'
-import { saveToHistory, getNutritionHistory } from '../utils/nutritionHistory'
+import { Soup } from 'lucide-react'
 
 export default function CalorieFinder() {
   const [result, setResult] = useState(null)
@@ -23,24 +23,24 @@ export default function CalorieFinder() {
   }
 
   return (
-      <Layout>
-        <h1 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          🍽️ <span>Calorie Finder</span>
-        </h1>
+    <Layout>
+      <h1 className="text-xl font-semibold mb-4 flex items-center gap-2">
+        <Soup size={22} />
+        <span>Find What’s on Your Plate</span>
+      </h1>
 
-        <DishInput onSelect={handleDishSelect} />
+      <DishInput onSelect={handleDishSelect} />
 
-        <NutritionResult result={result} />
+      <NutritionResult result={result} />
 
-        <PreviousSearches
-          searches={previousSearches}
-          onClick={(dishName) => {
-            // Load saved result from history without calling Gemini
-            const entries = getNutritionHistory();
-            const found = entries.find(e => e.dish === dishName);
-            if (found) setResult(found.nutrition);
-          }}
-        />
-      </Layout>
+      <PreviousSearches
+        searches={previousSearches}
+        onClick={(dishName) => {
+          const entries = getNutritionHistory();
+          const found = entries.find(e => e.dish === dishName);
+          if (found) setResult(found.nutrition);
+        }}
+      />
+    </Layout>
   )
 }

@@ -1,12 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react"; // optional icons
+import { ChevronLeft, ChevronRight, Menu, Soup, BarChart3 } from "lucide-react";
 
 export default function Sidebar({ isOpen, onClose, collapsed, toggleCollapse }) {
   const location = useLocation();
 
   const navItems = [
-    { path: "/", label: "Calorie Finder", icon: "🥘" },
-    { path: "/track", label: "Nutrition Tracker", icon: "📊" }
+    { path: "/", label: "Calorie Finder", icon: <Soup size={18} /> },
+    { path: "/track", label: "Nutrition Tracker", icon: <BarChart3 size={18} /> }
   ];
 
   return (
@@ -17,15 +17,17 @@ export default function Sidebar({ isOpen, onClose, collapsed, toggleCollapse }) 
     >
       {/* Collapse / Expand Button */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-        {!collapsed && <span className="font-bold text-lg text-gray-800 dark:text-gray-100">☰ Menu</span>}
+        {!collapsed && (
+          <span className="flex items-center gap-2 font-bold text-lg text-gray-800 dark:text-gray-100">
+            <Menu size={20} /> Menu
+          </span>
+        )}
         <button
           className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
           onClick={() => {
             if (window.innerWidth < 768) {
-              // Mobile → close completely
               onClose();
             } else {
-              // Desktop → toggle collapse
               toggleCollapse();
             }
           }}
@@ -40,14 +42,14 @@ export default function Sidebar({ isOpen, onClose, collapsed, toggleCollapse }) 
           <Link
             key={item.path}
             to={item.path}
-            className={`flex items-center gap-3 px-4 py-2 rounded ${
+            className={`flex items-center gap-3 px-4 py-2 rounded transition-colors duration-200 ${
               location.pathname === item.path
                 ? "bg-gray-200 dark:bg-gray-700"
                 : "hover:bg-gray-100 dark:hover:bg-gray-800"
             } text-gray-700 dark:text-gray-300`}
             onClick={onClose}
           >
-            <span>{item.icon}</span>
+            {item.icon}
             {!collapsed && <span>{item.label}</span>}
           </Link>
         ))}
