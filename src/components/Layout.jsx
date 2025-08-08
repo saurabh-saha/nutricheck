@@ -32,12 +32,6 @@ export default function Layout({ children }) {
 
           {/* Footer */}
           <footer className="mt-12 pt-4 border-t border-gray-200 dark:border-gray-700 text-sm text-center text-gray-600 dark:text-gray-400">
-            <Link
-              to="/track"
-              className="text-blue-600 dark:text-blue-400 hover:underline flex items-center justify-center gap-1 mb-1"
-            >
-              <span>➡️</span> <span>Go to Nutrition Tracker</span>
-            </Link>
             <p>© {new Date().getFullYear()} NutriCheck. Built with 💙</p>
           </footer>
         </div>

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import ProfileMenu from "../components/ProfileMenu";
 
 export default function Header({ onMenuClick }) {
@@ -18,9 +19,11 @@ export default function Header({ onMenuClick }) {
               ☰
             </button>
 
-            {/* Logo */}
-            <span className="text-3xl">🥗</span>
-            <h1 className="text-3xl font-bold">NutriCheck</h1>
+            {/* Logo + Title clickable */}
+            <Link to="/" className="flex items-center gap-2 hover:opacity-80">
+              <span className="text-3xl">🥗</span>
+              <h1 className="text-3xl font-bold">NutriCheck</h1>
+            </Link>
           </div>
 
           {/* Right: Profile Menu */}

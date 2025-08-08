@@ -41,13 +41,6 @@ export default function CalorieFinder() {
             if (found) setResult(found.nutrition);
           }}
         />
-
-        <Link
-          to="/track"
-          className="mt-6 inline-block text-sm text-blue-500 underline"
-        >
-          ➡️ Go to Nutrition Tracker
-        </Link>
       </Layout>
   )
 }
