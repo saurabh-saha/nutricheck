@@ -3,12 +3,11 @@ import Header from '../components/Header';
 import Sidebar from './Sidebar';
 
 export default function Layout({ children }) {
-  const [menuOpen, setMenuOpen] = useState(false);     // mobile toggle
-  const [collapsed, setCollapsed] = useState(false);   // desktop collapse
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen bg-white text-gray-800 dark:bg-gray-900 dark:text-white transition-colors duration-300 font-sans flex">
-      
+    <div className="h-dvh bg-white text-gray-800 dark:bg-gray-900 dark:text-white transition-colors duration-300 font-sans flex">
       {/* Sidebar */}
       <Sidebar
         isOpen={menuOpen}
@@ -37,3 +36,4 @@ export default function Layout({ children }) {
     </div>
   );
 }
+
