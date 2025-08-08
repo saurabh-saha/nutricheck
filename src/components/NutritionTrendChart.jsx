@@ -11,18 +11,21 @@ export function NutritionBarChart({ data, selectedKey, recommendedIntake }) {
   const recommendation = recommendedIntake[current.key] || 0;
 
   return (
-    <div className="w-full bg-white dark:bg-gray-800 rounded-xl shadow-md p-4">
+    <div className="w-full bg-white dark:bg-gray-800 rounded-xl shadow-md p-3">
       {/* Header Row */}
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-2"> {/* reduced from mb-4 */}
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
           {current.label} Trend <span className="text-sm text-gray-500">({current.unit})</span>
         </h3>
       </div>
 
       {/* Chart */}
-      <div className="w-full h-[280px]">
+      <div className="w-full h-[260px]"> {/* slightly reduced height */}
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data}>
+          <BarChart 
+            data={data} 
+            margin={{ top: 10, right: 10, left: 0, bottom: 0 }} // reduced left margin
+          >
             <CartesianGrid 
               strokeDasharray="3 3" 
               stroke="#e0e0e0"
@@ -36,22 +39,18 @@ export function NutritionBarChart({ data, selectedKey, recommendedIntake }) {
               className="text-gray-800 dark:text-gray-200"
               tickFormatter={(dateStr) => {
                 const day = new Date(dateStr).toLocaleDateString('en-US', { weekday: 'short' });
-                return day; // e.g. "Mon", "Tue"
+                return day;
               }}
             />
             <YAxis 
-              domain={[
-                0,
-                dataMax => Math.ceil(dataMax * 1.1) // 10% headroom
-              ]}
+              domain={[0, dataMax => Math.ceil(dataMax * 1.1)]}
               tick={{ fontSize: 12, fontWeight: 500 }}
               tickLine={false}
               axisLine={{ stroke: 'var(--color-border)' }}
+              width={36}
               className="text-gray-800 dark:text-gray-200"
             />
 
-            
-            {/* Dotted Recommendation Line */}
             {recommendation > 0 && (
               <ReferenceLine 
                 y={recommendation} 
@@ -72,16 +71,11 @@ export function NutritionBarChart({ data, selectedKey, recommendedIntake }) {
               radius={[6, 6, 0, 0]} 
               animationDuration={600}
             >
-              {/* Value labels on top of bars */}
               <LabelList 
                 dataKey={selectedKey} 
                 position="top" 
-                formatter={(val) => `${val}`} 
                 className="fill-gray-800 dark:fill-gray-200" 
-                style={{
-                  fontSize: 12,
-                  fontWeight: 500
-                }}
+                style={{ fontSize: 12, fontWeight: 500 }}
               />
             </Bar>
           </BarChart>
