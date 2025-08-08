@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { loginWithGoogle, logout } from "../utils/firebaseLogin";
 import { auth } from "../utils/firebaseConfig";
@@ -39,7 +39,14 @@ export default function ProfileMenu() {
                     Profile
                   </Link>
                 </li>
-                <li className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">Settings</li>
+                <li>
+                  <Link
+                    to="/settings"
+                    className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                    onClick={() => setOpen(false)}
+                  >Settings
+                  </Link>
+                </li>
                 <li
                   onClick={() => {
                     logout();

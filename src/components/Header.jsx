@@ -1,8 +1,7 @@
-import { Link } from 'react-router-dom'
-import { Switch } from "../components/ui/switch"
 import ProfileMenu from "../components/ProfileMenu"
+import { Link } from "react-router-dom";
 
-export default function Header({ isDark, toggle }) {
+export default function Header() {
   return (
     <header className="mb-8 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
       <div className="max-w-2xl mx-auto px-4 py-6 flex flex-col gap-4">
@@ -13,7 +12,7 @@ export default function Header({ isDark, toggle }) {
             <span className="text-3xl">🥗</span>
             <h1 className="text-3xl font-bold">NutriCheck</h1>
           </div>
-          <ProfileMenu />
+          <ProfileMenu/>
         </div>
 
         {/* Bottom Row: Navigation + Dark Mode */}
@@ -22,12 +21,6 @@ export default function Header({ isDark, toggle }) {
             <Link to="/" className="hover:underline">Calorie Finder</Link>
             <Link to="/track" className="hover:underline">Tracker</Link>
           </nav>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600 dark:text-gray-300">
-              {isDark ? "🌙 Dark Mode" : "☀️ Light Mode"}
-            </span>
-            <Switch checked={isDark} onCheckedChange={toggle} />
-          </div>
         </div>
 
       </div>

@@ -1,7 +1,9 @@
 import { Routes, Route } from "react-router-dom";
 import { IntakeProvider } from "./context/ProfileContext";
+import { DarkModeProvider } from "./context/DarkModeContext";
 import NutritionTracker from "./pages/NutritionTracker";
 import Profile from "./pages/Profile";
+import Settings from "./pages/Settings"
 import CalorieFinder from "./pages/CalorieFinder";
 import WelcomeModal from "./components/WelcomeModal";
 import { useState, useEffect } from "react";
@@ -16,19 +18,22 @@ export default function App() {
   }, []);
 
   return (
-    <IntakeProvider>
-      <Routes>
-        <Route path="/" element={<CalorieFinder />} />
-        <Route path="/track" element={<NutritionTracker />} />
-        <Route path="/profile" element={<Profile />} />
-      </Routes>
+    <DarkModeProvider>
+      <IntakeProvider>
+        <Routes>
+          <Route path="/" element={<CalorieFinder />} />
+          <Route path="/track" element={<NutritionTracker />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
 
-      {/* Celebration Popup */}
-      <WelcomeModal
-        name={welcome.name}
-        show={welcome.show}
-        onClose={() => setWelcome({ show: false, name: "" })}
-      />
-    </IntakeProvider>
+        {/* Celebration Popup */}
+        <WelcomeModal
+          name={welcome.name}
+          show={welcome.show}
+          onClose={() => setWelcome({ show: false, name: "" })}
+        />
+      </IntakeProvider>
+    </DarkModeProvider>
   );
 }

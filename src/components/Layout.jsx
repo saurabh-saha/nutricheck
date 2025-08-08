@@ -1,16 +1,12 @@
 import { Link } from 'react-router-dom'
-import useDarkMode from '../hooks/useDarkMode'
 import Header from '../components/Header'
 
 export default function Layout({ children }) {
-  const { isDark, toggle } = useDarkMode()
-
   return (
     <div className="min-h-screen bg-white text-gray-800 dark:bg-gray-900 dark:text-white transition-colors duration-300 font-sans">
       <div className="max-w-2xl mx-auto px-4 py-6">
 
-        {/* Header */}
-        <Header isDark={isDark} toggle={toggle} />
+        <Header/>
 
         {/* Main Content */}
         <main className="space-y-6">
