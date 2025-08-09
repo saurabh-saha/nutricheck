@@ -90,7 +90,7 @@ export const nutrientMap = [
   { key: "protein", label: "Protein", unit: "g", color: "#FF6B6B" },        // Aqua Blue
   { key: "fat", label: "Fat", unit: "g", color: "#FF6B6B" },                 // Gold Yellow
   { key: "carbs", label: "Carbs", unit: "g", color: "#FF6B6B" },             // Fresh Green
-  { key: "vitamin", label: "Vitamins", unit: "g", color: "#FF6B6B" },        // Soft Purple
+  { key: "vitamins", label: "Vitamins", unit: "g", color: "#FF6B6B" },        // Soft Purple
   { key: "minerals", label: "Minerals", unit: "g", color: "#FF6B6B" },       // Slate Blue
   { key: "fiber", label: "Fiber", unit: "g", color: "#FF6B6B" },             // Soft Orange
 ];

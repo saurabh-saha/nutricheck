@@ -50,6 +50,7 @@ export function getNutritionHistory() {
     const protein = Math.round((calories * 0.2) / 4);
     const fat = Math.round((calories * 0.3) / 9);
     const carbs = Math.round((calories * 0.5) / 4);
+    const fiber = Math.round((calories / 1000) * 14);
   
     return {
       calories: Math.round(calories),
@@ -57,7 +58,8 @@ export function getNutritionHistory() {
       fat,
       carbs,
       vitamins: 100,
-      minerals: 100
+      minerals: 100,
+      fiber
     };
   }
   

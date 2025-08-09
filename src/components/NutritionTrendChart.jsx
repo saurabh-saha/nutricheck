@@ -1,22 +1,45 @@
 // components/NutritionTrendChart.jsx
-import React from 'react'
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceLine, LabelList
-} from 'recharts'
+import React, {useState} from 'react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, ReferenceLine} from 'recharts'
 import { nutrientMap } from '../utils/nutritionTracker';
 
-export function NutritionBarChart({ data, selectedKey, recommendedIntake }) {
+export function NutritionBarChart({ data, selectedKey, recommendedIntake, onSelectDate }) {
   const current = nutrientMap.find(n => n.key === selectedKey);
   const recommendation = recommendedIntake[current.key] || 0;
 
+  // Calculate average of last 7 days (or fewer if less data)
+  const last7Days = data.slice(-7);
+  const total = last7Days.reduce((sum, day) => sum + (day[selectedKey] || 0), 0);
+  const average = (total / last7Days.length).toFixed(1);
+
+  const [selectedDate, setSelectedDate] = useState(null);
+
+  // Display value depends on selectedDate or average
+  let displayValue = `7 Day Average: ${average} ${current.unit}`;
+  if (selectedDate) {
+    // Find selected day data from data
+    const dayData = data.find(d => d.date === selectedDate);
+    if (dayData) {
+      displayValue = `${new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: ${dayData[selectedKey]} ${current.unit}`;
+    }
+  }
+
+  // Handle bar click
+  function handleBarClick(data, index, event) {
+    if (!data || !data.payload) return;
+    const dayDate = data.payload.date;
+    setSelectedDate(dayDate);
+    if (onSelectDate) onSelectDate(dayDate);
+  }  
+
   return (
     <div className="w-full bg-white dark:bg-gray-800 rounded-xl shadow-md p-3">
-      {/* Header Row */}
-      <div className="flex justify-between items-center mb-2"> {/* reduced from mb-4 */}
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-          {current.label} Trend <span className="text-sm text-gray-500">({current.unit})</span>
-        </h3>
+      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+        {current.label} <span className="text-sm text-gray-500"></span>
+      </h3>
+
+      <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-3">
+        {displayValue}
       </div>
 
       {/* Chart */}
@@ -70,13 +93,9 @@ export function NutritionBarChart({ data, selectedKey, recommendedIntake }) {
               fill={current.color} 
               radius={[6, 6, 0, 0]} 
               animationDuration={600}
+              onClick={handleBarClick}
             >
-              <LabelList 
-                dataKey={selectedKey} 
-                position="top" 
-                className="fill-gray-800 dark:fill-gray-200" 
-                style={{ fontSize: 12, fontWeight: 500 }}
-              />
+              
             </Bar>
           </BarChart>
         </ResponsiveContainer>
