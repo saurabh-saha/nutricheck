@@ -2,6 +2,7 @@
 import React, {useState} from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, ReferenceLine} from 'recharts'
 import { nutrientMap } from '../utils/nutritionTracker';
+import { Cell } from 'recharts';
 
 export function NutritionBarChart({ data, selectedKey, recommendedIntake, onSelectDate }) {
   const current = nutrientMap.find(n => n.key === selectedKey);
@@ -43,11 +44,11 @@ export function NutritionBarChart({ data, selectedKey, recommendedIntake, onSele
       </div>
 
       {/* Chart */}
-      <div className="w-full h-[260px]"> {/* slightly reduced height */}
+      <div className="w-full h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart 
             data={data} 
-            margin={{ top: 10, right: 10, left: 0, bottom: 0 }} // reduced left margin
+            margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
           >
             <CartesianGrid 
               strokeDasharray="3 3" 
@@ -80,22 +81,32 @@ export function NutritionBarChart({ data, selectedKey, recommendedIntake, onSele
                 stroke="#ff4d4f" 
                 strokeDasharray="4 4" 
                 label={{
-                  value: `Goal: ${recommendation}${current.unit}`,
-                  position: 'right',
+                  value: `${recommendation}`,
+                  position: 'left',
                   fill: '#ff4d4f',
                   fontSize: 12
                 }}
               />
             )}
 
-            <Bar 
-              dataKey={selectedKey} 
-              fill={current.color} 
-              radius={[6, 6, 0, 0]} 
+            <Bar
+              dataKey={selectedKey}
+              radius={[6, 6, 0, 0]}
               animationDuration={600}
-              onClick={handleBarClick}
+              cursor="pointer"
             >
-              
+              {data.map((entry) => (
+                <Cell
+                  key={entry.date}
+                  fill={current.color}
+                  opacity={entry.date === selectedDate ? 1 : 0.8}
+                  onClick={() => {
+                    setSelectedDate(entry.date);
+                    if (onSelectDate) onSelectDate(entry.date);
+                  }}
+                  style={{ cursor: "pointer" }}
+                />
+              ))}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
