@@ -1,43 +1,49 @@
 import { nutrientMap } from "../utils/nutritionTracker"
 
-export default function NutrientBreakdownList({ selectedNutrient, setSelectedNutrient, filtered, total }) {
+export default function NutrientBreakdownList({
+  selectedNutrient,
+  setSelectedNutrient,
+  filtered,
+  total,
+  onSelectMeal
+}) {
   if (!selectedNutrient) return null;
 
-  const nutrientLabel = nutrientMap.find(n => n.key === selectedNutrient)?.label || selectedNutrient;
+  const nutrientLabel =
+    nutrientMap.find((n) => n.key === selectedNutrient)?.label ||
+    selectedNutrient;
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded mt-4">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-2">
-        <h4 className="font-semibold text-gray-800 dark:text-gray-100">
-          Breakdown for: {nutrientLabel}
-        </h4>
-        <button
-          onClick={() => setSelectedNutrient("calories")}
-          className="text-xs text-blue-500 underline"
-        >
-          Reset Filter
-        </button>
-      </div>
-
+    <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mt-4 shadow-sm">
       {/* Entries */}
       {filtered.map((entry, index) => {
         const value = entry.nutrition[selectedNutrient];
         const percent = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
 
         return (
-          <div
+          <button
             key={index}
-            className="flex justify-between text-sm text-gray-700 dark:text-gray-300 mb-1 animate-fade-in"
+            onClick={() => onSelectMeal?.(entry)}
+            className="w-full flex justify-between items-center px-3 py-2 mb-2
+                       bg-white dark:bg-gray-700 rounded-lg shadow-sm
+                       hover:shadow-md hover:bg-gray-100 dark:hover:bg-gray-600
+                       transition-all duration-200 text-left"
           >
-            <span>🍽️ {entry.dish}</span>
-            <span>
-              {value}
-              {selectedNutrient === "calories" ? " kcal" : "g"} ({percent}%)
+            <span className="flex items-center gap-2 truncate">
+              <span className="text-lg">🍽️</span>
+              <span className="truncate font-medium">{entry.dish}</span>
             </span>
-          </div>
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {value}
+              {selectedNutrient === "calories" ? " kcal" : "g"}{" "}
+              <span className="text-gray-500 dark:text-gray-400">
+                ({percent}%)
+              </span>
+            </span>
+          </button>
         );
       })}
     </div>
   );
 }
+
