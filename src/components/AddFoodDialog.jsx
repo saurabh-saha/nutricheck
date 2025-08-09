@@ -18,8 +18,11 @@ export default function AddFoodDialog({ setHistory, setTodayData }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <button className="bg-blue-500 text-white px-4 py-2 rounded shadow">
-          ➕ Add for Today
+        <button
+          className="fixed bottom-6 right-6 bg-blue-500 text-white px-4 py-3 rounded-full shadow-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          aria-label="Add food for today"
+        >
+          ➕
         </button>
       </DialogTrigger>
 
