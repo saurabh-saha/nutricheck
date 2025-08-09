@@ -25,9 +25,10 @@ export default function NutrientBreakdown({ history, todayData, selectedNutrient
 
   // Filter for NutrientBreakdownList (only for today)
   const dateToFilter = selectedDate || getTodayDate();
-  const filtered = last7DaysData.filter(
-    e => e.date === dateToFilter && e[selectedNutrient] > 0
+  const filtered = history.filter(
+    e => e.date === dateToFilter && e.nutrition[selectedNutrient] > 0
   );
+  
   const totalEntry = last7DaysData.find(e => e.date === dateToFilter);
   const total = totalEntry ? (totalEntry[selectedNutrient] || 0) : (todayData[selectedNutrient] || 0);
 

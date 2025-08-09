@@ -22,7 +22,7 @@ export default function NutrientBreakdownList({ selectedNutrient, setSelectedNut
 
       {/* Entries */}
       {filtered.map((entry, index) => {
-        const value = entry[selectedNutrient];
+        const value = entry.nutrition[selectedNutrient];
         const percent = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
 
         return (
