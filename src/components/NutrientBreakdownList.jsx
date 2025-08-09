@@ -7,7 +7,7 @@ export default function NutrientBreakdownList({
   total,
   onSelectMeal
 }) {
-  if (!selectedNutrient) return null;
+  if (!selectedNutrient || filtered.length === 0) return null;
 
   const nutrientLabel =
     nutrientMap.find((n) => n.key === selectedNutrient)?.unit ||
