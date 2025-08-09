@@ -1,12 +1,25 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { loginWithGoogle, logout } from "../utils/firebaseLogin";
 import { auth } from "../utils/firebaseConfig";
 import { useAuthState } from "react-firebase-hooks/auth";
 
 export default function ProfileMenu() {
   const [open, setOpen] = useState(false);
-  const [user] = useAuthState(auth); // from react-firebase-hooks
+  const [user] = useAuthState(auth);
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    setOpen(false);
+    await logout(); // wait for Firebase to sign out
+    navigate("/");  // then redirect
+  };
+
+  const handleLogin = async () => {
+    setOpen(false);
+    await loginWithGoogle();
+    navigate("/track");
+  };
 
   return (
     <div className="relative">
@@ -44,14 +57,12 @@ export default function ProfileMenu() {
                     to="/settings"
                     className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                     onClick={() => setOpen(false)}
-                  >Settings
+                  >
+                    Settings
                   </Link>
                 </li>
                 <li
-                  onClick={() => {
-                    logout();
-                    setOpen(false);
-                  }}
+                  onClick={handleLogout}
                   className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                 >
                   Logout
@@ -59,11 +70,7 @@ export default function ProfileMenu() {
               </>
             ) : (
               <li
-                onClick={() => {
-                  loginWithGoogle();
-                  setOpen(false);
-                  navigate("/");
-                }}
+                onClick={handleLogin}
                 className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
               >
                 Login with Google
