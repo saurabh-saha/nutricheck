@@ -2,18 +2,13 @@ const DEFAULT_RECOMMENDED_CALORIES = 2000;
 const CALORIE_THRESHOLD_RATIO = 0.6;
 
 const scheduleConfig = {
-  10: {
+  16: {
     bucket: "morning",
     checkFnName: "shouldSendMorning",
     subject: "Time to log your nutrition",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; background-color: #0f172a; color: #f1f5f9; padding: 20px; border-radius: 12px;">
-        
-        <!-- Optional GIF -->
-        <div style="text-align: center; margin-bottom: 15px;">
-          <img src="https://your-gif-url-here.gif" alt="NutriCheck Demo" style="max-width: 100%; border-radius: 8px;" />
-        </div>
-        
+                
         <header style="text-align: center; margin-bottom: 20px;">
           <span style="font-size: 2.5rem;">🥗</span>
           <h1 style="font-size: 1.8rem; font-weight: bold; margin: 0; color: #ffffff;">NutriCheck</h1>
@@ -36,7 +31,7 @@ const scheduleConfig = {
     `,
     dateToCheck: (today, yesterday) => yesterday,
   },
-  17: {
+  18: {
     bucket: "evening",
     checkFnName: "shouldSendEvening",
     subject: "You’re running low on fuel 🔋",
