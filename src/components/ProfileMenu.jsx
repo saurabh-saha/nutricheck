@@ -62,6 +62,7 @@ export default function ProfileMenu() {
                 onClick={() => {
                   loginWithGoogle();
                   setOpen(false);
+                  navigate("/");
                 }}
                 className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
               >
