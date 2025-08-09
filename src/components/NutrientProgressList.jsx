@@ -1,5 +1,12 @@
 import { nutrientMap } from "../utils/nutritionTracker"
 
+const formatValue = (value) => {
+  if (value >= 1000) {
+    return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  }
+  return value;
+};
+
 export default function NutrientProgressList({ todayData, intake, selectedNutrient, setSelectedNutrient }) {
   return (
     <div className="grid grid-cols-2 text-sm gap-2 mb-4">
@@ -23,7 +30,7 @@ export default function NutrientProgressList({ todayData, intake, selectedNutrie
             {/* Label Row */}
             <div className="flex justify-between font-medium mb-1">
               <span>{label}</span>
-              <span>{current} / {goal}{unit}</span>
+              <span>{formatValue(current)} / {formatValue(goal)} {unit}</span>
             </div>
 
             {/* Progress Bar */}
