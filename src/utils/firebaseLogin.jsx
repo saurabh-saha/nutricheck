@@ -48,13 +48,26 @@ export function logout() {
 }
 
 export async function saveProfileToFirestore(profileData, intake) {
-  if (!auth.currentUser) return;
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const userInfo = {
+    uid: user.uid,
+    email: user.email || null,
+    emailVerified: user.emailVerified || false,
+    displayName: user.displayName || null,
+    photoURL: user.photoURL || null,
+    phoneNumber: user.phoneNumber || user.providerData?.[0]?.phoneNumber || null,
+    lastLoginAt: user.metadata?.lastSignInTime || null,
+  };
+
 
   await setDoc(
     doc(db, "users", auth.currentUser.uid),
     {
       profile: profileData,
       recommendedIntake: intake,
+      authInfo: userInfo,
       updatedAt: serverTimestamp()
     },
     { merge: true }
