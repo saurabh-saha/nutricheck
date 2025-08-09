@@ -1,3 +1,9 @@
+import { getFirestore, collection, addDoc } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+
+const db = getFirestore();
+const auth = getAuth();
+
 export function getDefaultIntake() {
   return {
     calories: 2000,
@@ -89,14 +95,33 @@ export async function handleAddEntry({
     if (!dish.trim() || !nutrition) return;
   
     const fullDish = `${quantity} ${unit} of ${dish}`;
-    const newEntry = { date: getTodayDate(), dish: fullDish, nutrition };
-    const updated = saveToTracker(newEntry);
-  
-    setHistory(updated);
-    const today = updated.filter(e => e.date === getTodayDate());
-    setTodayData(computeSummary(today));
-  
-    onSuccess?.();
+    const newEntry = { 
+        date: getTodayDate(), 
+        dish: fullDish, 
+        nutrition 
+    };
+
+    try {
+        // 1. Save locally
+        const updated = saveToTracker(newEntry);
+        setHistory(updated);
+
+        // 2. Update today's summary
+        const today = updated.filter(e => e.date === getTodayDate());
+        setTodayData(computeSummary(today));
+
+        // 3. Save to Firestore
+        const user = auth.currentUser;
+        if (user) {
+            await addDoc(collection(db, "users", user.uid, "intakeHistory"), newEntry);
+        }
+
+        onSuccess?.();
+    } catch (err) {
+        console.error("Error adding entry:", err);
+        onError?.();
+    }
 }
+
   
   
