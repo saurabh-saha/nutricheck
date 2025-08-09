@@ -10,7 +10,7 @@ export default function NutrientBreakdownList({
   if (!selectedNutrient) return null;
 
   const nutrientLabel =
-    nutrientMap.find((n) => n.key === selectedNutrient)?.label ||
+    nutrientMap.find((n) => n.key === selectedNutrient)?.unit ||
     selectedNutrient;
 
   return (
@@ -35,7 +35,7 @@ export default function NutrientBreakdownList({
             </span>
             <span className="text-sm text-gray-700 dark:text-gray-300">
               {value}
-              {selectedNutrient === "calories" ? " kcal" : "g"}{" "}
+              {nutrientLabel}{" "}
               <span className="text-gray-500 dark:text-gray-400">
                 ({percent}%)
               </span>
