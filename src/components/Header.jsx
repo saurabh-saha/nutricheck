@@ -8,7 +8,7 @@ export default function Header({ onMenuClick }) {
   const [user] = useAuthState(auth); // ✅ same hook as ProfileMenu
 
   return (
-    <header className="mb-8 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+    <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
       <div className="max-w-2xl mx-auto px-4 py-6 flex flex-col gap-4">
         
         {/* Top Row: Menu + Logo + Profile */}
