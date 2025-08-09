@@ -2,7 +2,7 @@ const DEFAULT_RECOMMENDED_CALORIES = 2000;
 const CALORIE_THRESHOLD_RATIO = 0.6;
 
 const scheduleConfig = {
-  16: {
+  10: {
     bucket: "morning",
     checkFnName: "shouldSendMorning",
     subject: "Time to log your nutrition",
@@ -31,7 +31,7 @@ const scheduleConfig = {
     `,
     dateToCheck: (today, yesterday) => yesterday,
   },
-  18: {
+  20: {
     bucket: "evening",
     checkFnName: "shouldSendEvening",
     subject: "You’re running low on fuel 🔋",

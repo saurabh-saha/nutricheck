@@ -2,6 +2,9 @@ const { getUsers } = require("../lib/firestore");
 const { sendEmail } = require("../lib/email");
 const { scheduleConfig } = require("../config/scheduleConfig");
 const { shouldSendMorning, shouldSendEvening } = require("./checkers");
+const { toZonedTime } = require('date-fns-tz');
+
+const timeZone = 'Asia/Kolkata';
 
 const checkFunctions = {
   shouldSendMorning,
@@ -9,7 +12,9 @@ const checkFunctions = {
 };
 
 const runReminderEmails = async () => {
-  const hour = new Date().getHours();
+  const now = new Date();
+  const istDate = toZonedTime(now, timeZone);
+  const hour = istDate.getHours();
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = yesterday.toISOString().split("T")[0];
