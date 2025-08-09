@@ -5,7 +5,7 @@ import { loginWithGoogle } from "../utils/firebaseLogin";
 
 import { X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
+import { onAuthStateChanged } from "firebase/auth";
 import Layout from '../components/Layout'
 import {
   getTrackerHistory,
@@ -23,15 +23,24 @@ export default function NutritionTracker() {
   const [todayData, setTodayData] = useState({})
   const [selectedNutrient, setSelectedNutrient] = useState("calories")
 
+
   useEffect(() => {
-    const all = getTrackerHistory()
-    setHistory(all)
-
-    const today = all.filter(e => e.date === getTodayDate())
-    const summary = computeSummary(today)
-    setTodayData(summary)
-  }, [])
-
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const all = await getTrackerHistory();
+        setHistory(all);
+  
+        const today = all.filter(e => e.date === getTodayDate());
+        setTodayData(computeSummary(today));
+      } else {
+        setHistory([]);
+        setTodayData({});
+      }
+    });
+  
+    return () => unsubscribe();
+  }, []);
+  
   return (
     <Layout>
       {/* Main content - blurred and disabled if not logged in */}

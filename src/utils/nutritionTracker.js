@@ -1,4 +1,4 @@
-import { getFirestore, collection, addDoc } from "firebase/firestore";
+import { getFirestore, collection, addDoc, getDocs } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 const db = getFirestore();
@@ -23,17 +23,66 @@ export function getTodayDate() {
     const dd = String(today.getDate()).padStart(2, '0')
     return `${yyyy}-${mm}-${dd}`
 }
-  
-export function getTrackerHistory() {
-  const raw = localStorage.getItem(KEY)
-  return raw ? JSON.parse(raw) : []
+
+export async function getTrackerHistory() {
+  try {
+    const user = auth.currentUser;
+    let firebaseData = [];
+    let localData = [];
+
+    // 1. Get localStorage data
+    const rawLocal = localStorage.getItem(KEY);
+    if (rawLocal) {
+      try {
+        localData = JSON.parse(rawLocal);
+      } catch (e) {
+        console.warn("Invalid localStorage data, resetting...");
+        localData = [];
+      }
+    }
+
+    // 2. If logged in, get Firebase data
+    if (user) {
+      const querySnapshot = await getDocs(collection(db, "users", user.uid, "intakeHistory"));
+      firebaseData = querySnapshot.docs.map(doc => doc.data());
+
+      // 3. Find entries in localData that aren't in Firebase
+      const firebaseSet = new Set(firebaseData.map(e => `${e.date}-${e.dish}`));
+      const newForFirebase = localData.filter(e => !firebaseSet.has(`${e.date}-${e.dish}`));
+
+      // 4. Push missing local entries to Firebase
+      for (const entry of newForFirebase) {
+        await addDoc(collection(db, "users", user.uid, "intakeHistory"), entry);
+      }
+
+      // 5. Merge all data (Firebase + local, avoiding duplicates)
+      const mergedSet = new Map();
+      [...firebaseData, ...localData].forEach(e => {
+        mergedSet.set(`${e.date}-${e.dish}`, e);
+      });
+      const mergedArray = Array.from(mergedSet.values());
+
+      // 6. Update localStorage with merged data
+      localStorage.setItem(KEY, JSON.stringify(mergedArray));
+
+      return mergedArray;
+    }
+
+    // 7. If not logged in, just return local data
+    return localData;
+  } catch (err) {
+    console.error("Error syncing tracker history:", err);
+    return [];
+  }
 }
 
-export function saveToTracker(entry) {
-  const current = getTrackerHistory()
-  const updated = [...current, entry]
-  localStorage.setItem(KEY, JSON.stringify(updated))
-  return updated
+
+
+export async function saveToTracker(entry) {
+  const current = await getTrackerHistory(); // wait for array
+  const updated = [...current, entry];
+  localStorage.setItem(KEY, JSON.stringify(updated));
+  return updated;
 }
 
 export const nutrientMap = [
@@ -90,38 +139,39 @@ export const computeSummary = (entries) => {
 }
 
 export async function handleAddEntry({ 
-    dish, quantity, unit, nutrition, setHistory, setTodayData, onSuccess, onError 
+  dish, quantity, unit, nutrition, setHistory, setTodayData, onSuccess, onError 
 }) {
-    if (!dish.trim() || !nutrition) return;
-  
-    const fullDish = `${quantity} ${unit} of ${dish}`;
-    const newEntry = { 
-        date: getTodayDate(), 
-        dish: fullDish, 
-        nutrition 
-    };
+  if (!dish.trim() || !nutrition) return;
 
-    try {
-        // 1. Save locally
-        const updated = saveToTracker(newEntry);
-        setHistory(updated);
+  const fullDish = `${quantity} ${unit} of ${dish}`;
+  const newEntry = { 
+    date: getTodayDate(), 
+    dish: fullDish, 
+    nutrition 
+  };
 
-        // 2. Update today's summary
-        const today = updated.filter(e => e.date === getTodayDate());
-        setTodayData(computeSummary(today));
+  try {
+    // 1. Save locally (and await because it reads Firebase first)
+    const updated = await saveToTracker(newEntry);
+    setHistory(updated);
 
-        // 3. Save to Firestore
-        const user = auth.currentUser;
-        if (user) {
-            await addDoc(collection(db, "users", user.uid, "intakeHistory"), newEntry);
-        }
+    // 2. Update today's summary
+    const today = updated.filter(e => e.date === getTodayDate());
+    setTodayData(computeSummary(today));
 
-        onSuccess?.();
-    } catch (err) {
-        console.error("Error adding entry:", err);
-        onError?.();
+    // 3. Save to Firestore
+    const user = auth.currentUser;
+    if (user) {
+      await addDoc(collection(db, "users", user.uid, "intakeHistory"), newEntry);
     }
+
+    onSuccess?.();
+  } catch (err) {
+    console.error("Error adding entry:", err);
+    onError?.();
+  }
 }
+
 
   
   
