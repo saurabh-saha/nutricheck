@@ -28,16 +28,9 @@ export default function NutrientProgressList({ todayData, intake, selectedNutrie
             }`}
           >
             {/* Label Row */}
-            <div className="flex items-center justify-between font-medium mb-1">
-              {/* Full name shows, only truncates if overflow */}
-              <span className="flex-1 pr-2 overflow-hidden truncate whitespace-nowrap">
-                {label}
-              </span>
-
-              {/* Fixed width value for alignment */}
-              <span className="w-24 text-right">
-                {formatValue(current)} / {formatValue(goal)} {unit}
-              </span>
+            <div className="flex flex-col font-medium mb-1">
+              <span>{label}</span>
+              <span>{formatValue(current)} / {formatValue(goal)} {unit}</span>
             </div>
 
             {/* Progress Bar */}
