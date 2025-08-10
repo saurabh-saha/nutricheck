@@ -25,14 +25,6 @@ export function NutritionBarChart({ data, selectedKey, recommendedIntake, onSele
     }
   }
 
-  // Handle bar click
-  function handleBarClick(data, index, event) {
-    if (!data || !data.payload) return;
-    const dayDate = data.payload.date;
-    setSelectedDate(dayDate);
-    if (onSelectDate) onSelectDate(dayDate);
-  }  
-
   return (
     <div className="w-full bg-white dark:bg-gray-800 rounded-xl shadow-md p-3">
       <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
