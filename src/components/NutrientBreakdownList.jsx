@@ -25,21 +25,23 @@ export default function NutrientBreakdownList({
             key={index}
             onClick={() => onSelectMeal?.(entry)}
             className="w-full flex justify-between items-center px-3 py-2 mb-2
-                       bg-white dark:bg-gray-700 rounded-lg shadow-sm
-                       hover:shadow-md hover:bg-gray-100 dark:hover:bg-gray-600
-                       transition-all duration-200 text-left"
+                      bg-white dark:bg-gray-700 rounded-lg shadow-sm
+                      hover:shadow-md hover:bg-gray-100 dark:hover:bg-gray-600
+                      transition-all duration-200 text-left"
           >
-            <span className="flex items-center gap-2 truncate">
-              <span className="text-lg">🍽️</span>
-              <span className="truncate font-medium">{entry.dish}</span>
-            </span>
-            <span className="text-sm text-gray-700 dark:text-gray-300">
-              {value}
-              {nutrientLabel}{" "}
-              <span className="text-gray-500 dark:text-gray-400">
-                ({percent}%)
+            <div className="flex flex-col w-full">
+              <div className="flex items-center gap-2 w-full">
+                <span className="text-lg">🍽️</span>
+                <div className="font-medium break-words w-full">{entry.dish}</div>
+              </div>
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                {value}
+                {nutrientLabel}{" "}
+                <span className="text-gray-500 dark:text-gray-400">
+                  ({percent}%)
+                </span>
               </span>
-            </span>
+            </div>
           </button>
         );
       })}
