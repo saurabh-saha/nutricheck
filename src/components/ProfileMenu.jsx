@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { loginWithGoogle, logout } from "../utils/firebaseLogin";
 import { auth } from "../utils/firebaseConfig";
@@ -8,6 +8,11 @@ export default function ProfileMenu() {
   const [open, setOpen] = useState(false);
   const [user] = useAuthState(auth);
   const navigate = useNavigate();
+
+  // Force default dark theme
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+  }, []);
 
   const handleLogout = async () => {
     setOpen(false);
@@ -50,15 +55,6 @@ export default function ProfileMenu() {
                     onClick={() => setOpen(false)}
                   >
                     Profile
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/settings"
-                    className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                    onClick={() => setOpen(false)}
-                  >
-                    Settings
                   </Link>
                 </li>
                 <li
