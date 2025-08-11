@@ -54,7 +54,7 @@ export async function getTrackerHistory() {
       for (const entry of newForFirebase) {
         await addDoc(collection(db, "users", user.uid, "intakeHistory"), entry);
       }
-
+      
       // 5. Merge all data (Firebase + local, avoiding duplicates)
       const mergedSet = new Map();
       [...firebaseData, ...localData].forEach(e => {
@@ -75,8 +75,6 @@ export async function getTrackerHistory() {
     return [];
   }
 }
-
-
 
 export async function saveToTracker(entry) {
   const current = await getTrackerHistory(); // wait for array
@@ -149,6 +147,31 @@ export const computeSummary = (entries) => {
     return sum
 }
 
+function normalizeNutritionPerUnit(quantity, nutrition) {
+  if (!quantity || quantity === 0) return nutrition;
+
+  const normalized = {};
+  for (const key in nutrition) {
+    if (typeof nutrition[key] === "number") {
+      normalized[key] = nutrition[key] / quantity;
+    } else {
+      normalized[key] = nutrition[key];
+    }
+  }
+  return normalized;
+}
+
+export async function addRecipeWithNormalizedNutrition(dish, quantity, unit, nutrition) {
+  const nutritionPerUnit = normalizeNutritionPerUnit(quantity, nutrition);
+
+  await addDoc(collection(db, "recipes"), {
+    name: dish.trim(),
+    nutritionPerUnit,
+    unit,
+    createdAt: new Date(),
+  });
+}
+
 export async function handleAddEntry({ 
   dish, quantity, unit, nutrition, setHistory, setTodayData, onSuccess, onError 
 }) {
@@ -176,6 +199,7 @@ export async function handleAddEntry({
       await addDoc(collection(db, "users", user.uid, "intakeHistory"), newEntry);
     }
 
+    await addRecipeWithNormalizedNutrition(dish, quantity, unit, nutrition)
     onSuccess?.();
   } catch (err) {
     console.error("Error adding entry:", err);
