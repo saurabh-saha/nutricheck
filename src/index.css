@@ -78,3 +78,8 @@
   outline: 3px solid rgba(59,130,246,0.6);
   outline-offset: 2px;
 }
+
+html, body, #root {
+  height: 100%;
+  background-color: #111827; /* match your dark bg-gray-900 */
+}
