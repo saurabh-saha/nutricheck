@@ -97,20 +97,31 @@ export const nutrientMap = [
 
 
 export function getLast7DaysSummary(history) {
-    const days = {}
-  
-    history.forEach(e => {
-      if (!days[e.date]) days[e.date] = []
-      days[e.date].push(e)
-    })
-  
-    const sorted = Object.entries(days).sort(([d1], [d2]) => d1.localeCompare(d2))
-    const last7 = sorted.slice(-7)
-  
-    return last7.map(([date, entries]) => ({
+  const daysMap = {};
+
+  // Group history by date
+  history.forEach(e => {
+    if (!daysMap[e.date]) daysMap[e.date] = [];
+    daysMap[e.date].push(e);
+  });
+
+  // Generate last 7 dates from today backwards
+  const today = new Date();
+  const last7Dates = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const dateStr = d.toISOString().split("T")[0]; // yyyy-mm-dd
+    last7Dates.push(dateStr);
+  }
+
+  // Build summary for each day (empty if no entries)
+  return last7Dates
+    .reverse() // so oldest comes first
+    .map(date => ({
       date,
-      ...computeSummary(entries)
-    }))
+      ...computeSummary(daysMap[date] || [])
+    }));
 }
 
 export const computeSummary = (entries) => {
