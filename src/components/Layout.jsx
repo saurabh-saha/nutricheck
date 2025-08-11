@@ -4,7 +4,7 @@ import Sidebar from './Sidebar';
 
 export default function Layout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   return (
     <div className="h-dvh bg-white text-gray-800 dark:bg-gray-900 dark:text-white transition-colors duration-300 font-sans flex">
@@ -17,7 +17,7 @@ export default function Layout({ children }) {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0 min-w-0">
         
         {/* Header */}
         <Header onMenuClick={() => setMenuOpen(!menuOpen)} />
