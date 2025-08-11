@@ -66,3 +66,15 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Hide the focus ring for mouse clicks, but preserve it for keyboard users */
+.recharts-wrapper svg:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Optional: make keyboard focus visible with a nicer ring */
+.recharts-wrapper svg:focus-visible {
+  outline: 3px solid rgba(59,130,246,0.6);
+  outline-offset: 2px;
+}
