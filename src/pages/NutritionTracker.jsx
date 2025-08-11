@@ -45,23 +45,22 @@ export default function NutritionTracker() {
     <Layout>
       {/* Main content - blurred and disabled if not logged in */}
       <div
-  className={`relative ${!user ? 'filter blur-sm pointer-events-none select-none' : ''}`}
->
-  <div className="bg-gray-900 p-4 rounded-lg">
-    <NutrientBreakdown
-      history={history}
-      todayData={todayData}
-      selectedNutrient={selectedNutrient}
-      setSelectedNutrient={setSelectedNutrient}
-    />
+        className={`relative ${!user ? 'filter blur-sm pointer-events-none select-none' : ''}`}
+      >
+        <div className="bg-gray-900 p-4 rounded-lg">
+        <NutrientBreakdown
+          history={history}
+          todayData={todayData}
+          selectedNutrient={selectedNutrient}
+          setSelectedNutrient={setSelectedNutrient}
+        />
 
-    <AddFoodDialog
-      setHistory={setHistory}
-      setTodayData={setTodayData}
-    />
-  </div>
-</div>
-
+        <AddFoodDialog
+          setHistory={setHistory}
+          setTodayData={setTodayData}
+        />
+        </div>
+      </div>
 
       {/* Login modal overlay if not logged in */}
       {!user && (
