@@ -17,23 +17,27 @@ export function NutritionBarChart({ data, selectedKey, recommendedIntake, onSele
 
   // Display value depends on selectedDate or average
   let displayValue = `7 Day Average: ${average} ${current.unit}`;
-  if (selectedDate) {
-    // Find selected day data from data
-    const dayData = data.find(d => d.date === selectedDate);
-    if (dayData) {
-      displayValue = `${new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: ${dayData[selectedKey]} ${current.unit}`;
-    }
-  }
+  // if (selectedDate) {
+  //   // Find selected day data from data
+  //   const dayData = data.find(d => d.date === selectedDate);
+  //   if (dayData) {
+  //     displayValue = `${new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: ${dayData[selectedKey]} ${current.unit}`;
+  //   }
+  // }
 
   return (
     <div className="w-full bg-white dark:bg-gray-800 rounded-xl shadow-md p-3">
-      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-        {current.label} <span className="text-sm text-gray-500"></span>
-      </h3>
+<div className="flex justify-between items-center mb-3 px-2">
+  <span className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+    {current.label}
+  </span>
+  <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+    {displayValue}
+  </span>
+</div>
 
-      <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-3">
-        {displayValue}
-      </div>
+
+
 
       {/* Chart */}
       <div className="w-full h-[260px]">
