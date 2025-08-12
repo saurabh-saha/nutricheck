@@ -1,5 +1,6 @@
 import { getFirestore, collection, addDoc, getDocs } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import Fuse from "fuse.js";
 
 const db = getFirestore();
 const auth = getAuth();
@@ -54,7 +55,7 @@ export async function getTrackerHistory() {
       for (const entry of newForFirebase) {
         await addDoc(collection(db, "users", user.uid, "intakeHistory"), entry);
       }
-      
+
       // 5. Merge all data (Firebase + local, avoiding duplicates)
       const mergedSet = new Map();
       [...firebaseData, ...localData].forEach(e => {
@@ -207,6 +208,34 @@ export async function handleAddEntry({
   }
 }
 
+export async function fetchAllRecipes() {
+  const user = auth.currentUser;
 
-  
-  
+  if (!user) {
+    console.warn("User not logged in.");
+    return [];
+  }
+
+  try {
+    const querySnapshot = await getDocs(collection(db, "recipes"));
+    const recipes = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    return recipes;
+  } catch (error) {
+    console.error("Error fetching recipes:", error);
+    return [];
+  }
+}
+
+export function searchRecipes(query, recipesCache) {
+  if (!query || query.length < 3) return [];
+
+  const fuse = new Fuse(recipesCache, {
+    keys: ["name"],
+    threshold: 0.4,
+  });
+
+  return fuse.search(query).map(result => result.item);
+}
