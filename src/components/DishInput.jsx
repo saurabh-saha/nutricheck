@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useRef, forwardRef } from "react"
 import { getDishSuggestionsFromGemini } from '../utils/gemini.jsx'
 import FadeScale from "./ui/FadeScale";
 
@@ -44,16 +44,15 @@ function ServingSizeDropdown({ quantity, setQuantity, unit, setUnit }) {
     )
 }
 
-function ImageInput({ onChange }) {
-  return (
-    <input
-      type="file"
-      accept="image/*"
-      onChange={(e) => onChange(e.target.files[0])}
-      className="border rounded px-3 py-2 w-full bg-white text-gray-800"
-    />
-  );
-}
+const ImageInput = forwardRef(({ onChange }, ref) => (
+  <input
+    type="file"
+    accept="image/*"
+    onChange={(e) => onChange(e.target.files[0])}
+    ref={ref}
+    className="border rounded px-3 py-2 w-full bg-white text-gray-800"
+  />
+));
 
 export default function DishInput({ 
     onSelect,
@@ -69,6 +68,7 @@ export default function DishInput({
     const [result, setResult] = useState(null);
     const [closing, setClosing] = useState(false);
     const [dishImage, setDishImage] = useState(null);
+    const inputRef = useRef(null);
 
     const handleSearch = async () => {
         if (!dish.trim() && !dishImage) return;
@@ -110,14 +110,25 @@ export default function DishInput({
                 placeholder="Enter a dish..."
                 />
 
-                <ImageInput onChange={setDishImage} />
+                <ImageInput ref={inputRef} onChange={setDishImage} />
                 
                 {dishImage && (
-                  <img
-                    src={URL.createObjectURL(dishImage)}
-                    alt="Preview"
-                    className="w-20 h-20 object-cover rounded mt-2"
-                  />
+                  <div className="flex justify-center mt-2 relative">
+                    <img
+                      src={URL.createObjectURL(dishImage)}
+                      alt="Preview"
+                      className="w-32 h-32 sm:w-40 sm:h-40 object-cover rounded-lg shadow-md border border-gray-300"
+                    />
+                    <button
+                      onClick={() => {
+                        setDishImage(null)
+                        if (inputRef.current) inputRef.current.value = "";
+                      }}
+                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 )}
                 
                 {/* Quantity + Unit */}
