@@ -50,7 +50,7 @@ function ImageInput({ onChange }) {
       type="file"
       accept="image/*"
       onChange={(e) => onChange(e.target.files[0])}
-      className="border rounded px-3 py-2 flex-1 bg-white text-gray-800"
+      className="border rounded px-3 py-2 w-full bg-white text-gray-800"
     />
   );
 }
