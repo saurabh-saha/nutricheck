@@ -1,6 +1,7 @@
 import { getFirestore, collection, addDoc, getDocs } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import {uploadDishImage} from "../utils/firebaseLogin"
+import { uploadDishImage } from "../utils/firebaseLogin"
+
 const db = getFirestore();
 const auth = getAuth();
 
@@ -17,11 +18,14 @@ export function getDefaultIntake() {
 const KEY = 'nutrition-tracker-v2'
 
 export function getTodayDate() {
-    const today = new Date()
-    const yyyy = today.getFullYear()
-    const mm = String(today.getMonth() + 1).padStart(2, '0')
-    const dd = String(today.getDate()).padStart(2, '0')
-    return `${yyyy}-${mm}-${dd}`
+  return formatDate(new Date());
+}
+
+export function formatDate(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 export async function getTrackerHistory() {
@@ -109,7 +113,7 @@ export function getLast7DaysSummary(history) {
   for (let i = 0; i < 7; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
-    const dateStr = d.toISOString().split("T")[0]; // yyyy-mm-dd
+    const dateStr = formatDate(d)
     last7Dates.push(dateStr);
   }
 
