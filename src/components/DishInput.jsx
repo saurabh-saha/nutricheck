@@ -43,7 +43,17 @@ function ServingSizeDropdown({ quantity, setQuantity, unit, setUnit }) {
       </>
     )
 }
-  
+
+function ImageInput({ onChange }) {
+  return (
+    <input
+      type="file"
+      accept="image/*"
+      onChange={(e) => onChange(e.target.files[0])}
+      className="border rounded px-3 py-2 flex-1 bg-white text-gray-800"
+    />
+  );
+}
 
 export default function DishInput({ 
     onSelect,
@@ -58,11 +68,12 @@ export default function DishInput({
     const [isLoading, setIsLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [closing, setClosing] = useState(false);
+    const [dishImage, setDishImage] = useState(null);
 
     const handleSearch = async () => {
-        if (!dish.trim()) return;
+        if (!dish.trim() && !dishImage) return;
         setIsLoading(true);
-        const suggestions = await getDishSuggestionsFromGemini(dish, quantity, unit);
+        const suggestions = await getDishSuggestionsFromGemini(dish, quantity, unit, dishImage);
         setIsLoading(false);
     
         if (suggestions.error) {
@@ -98,7 +109,17 @@ export default function DishInput({
                 onChange={(e) => setDish(e.target.value)}
                 placeholder="Enter a dish..."
                 />
-        
+
+                <ImageInput onChange={setDishImage} />
+                
+                {dishImage && (
+                  <img
+                    src={URL.createObjectURL(dishImage)}
+                    alt="Preview"
+                    className="w-20 h-20 object-cover rounded mt-2"
+                  />
+                )}
+                
                 {/* Quantity + Unit */}
                 <div className="flex gap-2">
                 <ServingSizeDropdown

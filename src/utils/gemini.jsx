@@ -7,6 +7,15 @@ const jsonTemplate = nutrientMap.reduce((acc, { key }) => {
   return acc;
 }, {});
 
+const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]); // remove data: prefix
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+};
+
 export const getNutritionFromGemini = async (dish, quantity = 1, unit = 'bowl') => {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
@@ -32,42 +41,56 @@ export const getNutritionFromGemini = async (dish, quantity = 1, unit = 'bowl') 
   }
 };
 
-export const getDishSuggestionsFromGemini = async (dish) => {
+export const getDishSuggestionsFromGemini = async (dish, quantity, unit,  dishImage) => {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  dish = `${quantity} ${unit} of ${dish}`;
+  const promptParts = [{
+    text: 
+    `
+      Create exactly 3 dish suggestions based on "${dish || 'the dish in the image'}".
+      Rule:
+      1. If a dish name is provided, the FIRST suggestion must be exactly that dish.
+      2. If only an image is provided, infer the most likely dish and use it as the first suggestion.
+      2. The second and third suggestions should be close variants (different styles, toppings, ingredients).
+      
+      For each suggestion, include:
+      - name (string)
+      - image (string): one of these file names [badfats.webp, calorie.webp, carbs.webp, fiber.webp, goodfats.jpg, minerals.jpg, protein.webp, vitamins.webp]
+      - nutrition (object in this format):
+        ${JSON.stringify(jsonTemplate, null, 2)}
 
-  const prompt = `
-  Create exactly 3 dish suggestions based on "${dish}".
-  Rule:
-  1. The FIRST suggestion must be exactly the same dish "${dish}".
-  2. The second and third suggestions should be close variants (different styles, toppings, ingredients).
-  
-  For each suggestion, include:
-  - name (string)
-  - image (string): one of these file names [badfats.webp, calorie.webp, carbs.webp, fiber.webp, goodfats.jpg, minerals.jpg, protein.webp, vitamins.webp]
-  - nutrition (object in this format):
-    ${JSON.stringify(jsonTemplate, null, 2)}
+      Output format: strictly a JSON array like this:
+      [
+        {
+          "name": "Dish Name",
+          "image": "calorie.webp",
+          "nutrition": { ... }
+        },
+        ...
+      ]
 
-  Output format: strictly a JSON array like this:
-  [
-    {
-      "name": "Dish Name",
-      "image": "calorie.webp",
-      "nutrition": { ... }
-    },
-    ...
-  ]
+      Rules:
+      - All nutrition values must be integers.
+      - Use kcal for calories, grams (g) for all other values.
+      - Strictly return JSON only — no explanations or extra text.
+      - URLs should be tested and should not show to image found. otherwise default to 
+    `
+  }];
 
-  Rules:
-  - All nutrition values must be integers.
-  - Use kcal for calories, grams (g) for all other values.
-  - Strictly return JSON only — no explanations or extra text.
-  - URLs should be tested and should not show to image found. otherwise default to 
-  `;
+  if (dishImage) {
+    const base64Image = await fileToBase64(dishImage);
+    promptParts.push({
+      inlineData: {
+        data: base64Image,
+        mimeType: dishImage.type
+      }
+    });
+  }
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent(promptParts);
     const text = result.response.text();
-    return extractJsonFromText(text); // should now always start with original dish
+    return extractJsonFromText(text);
   } catch (err) {
     console.error('Gemini SDK error:', err);
     return [];
