@@ -1,6 +1,6 @@
 import { getFirestore, collection, addDoc, getDocs } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-
+import {uploadDishImage} from "../utils/firebaseLogin"
 const db = getFirestore();
 const auth = getAuth();
 
@@ -161,30 +161,39 @@ function normalizeNutritionPerUnit(quantity, nutrition) {
   return normalized;
 }
 
-export async function addRecipeWithNormalizedNutrition(dish, quantity, unit, nutrition) {
+export async function addRecipeWithNormalizedNutrition(dish, quantity, unit, nutrition, dishImageFile) {
   const nutritionPerUnit = normalizeNutritionPerUnit(quantity, nutrition);
+
+  let imageUrl = null;
+  if (dishImageFile) {
+    imageUrl = await uploadDishImage(dishImageFile, dish);
+  }
 
   await addDoc(collection(db, "recipes"), {
     name: dish.trim(),
     nutritionPerUnit,
     unit,
+    imageUrl,
     createdAt: new Date(),
   });
 }
 
 export async function handleAddEntry({ 
-  dish, quantity, unit, nutrition, setHistory, setTodayData, onSuccess, onError 
+  dish, quantity, unit, dishImage, nutrition, setHistory, setTodayData, onSuccess, onError 
 }) {
   if (!dish.trim() || !nutrition) return;
 
   const fullDish = `${quantity} ${unit} of ${dish}`;
-  const newEntry = { 
-    date: getTodayDate(), 
-    dish: fullDish, 
-    nutrition 
-  };
 
   try {
+    const imageUrl = await uploadDishImage(dishImage, dish);
+    const newEntry = { 
+      date: getTodayDate(), 
+      dish: fullDish, 
+      nutrition,
+      imageUrl
+    };
+
     // 1. Save locally (and await because it reads Firebase first)
     const updated = await saveToTracker(newEntry);
     setHistory(updated);
@@ -199,7 +208,7 @@ export async function handleAddEntry({
       await addDoc(collection(db, "users", user.uid, "intakeHistory"), newEntry);
     }
 
-    await addRecipeWithNormalizedNutrition(dish, quantity, unit, nutrition)
+    await addRecipeWithNormalizedNutrition(dish, quantity, unit, nutrition, imageUrl)
     onSuccess?.();
   } catch (err) {
     console.error("Error adding entry:", err);

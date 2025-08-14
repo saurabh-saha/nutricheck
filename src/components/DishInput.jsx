@@ -89,7 +89,7 @@ export default function DishInput({
         if (item) {
           setClosing(true); // start fade animation
           setTimeout(() => {
-            onSelect?.(item.name, quantity, unit, item.nutrition);
+            onSelect?.(item.name, quantity, unit, item.nutrition, dishImage);
             setDish("");
             setQuantity(1);
             setUnit("bowl");

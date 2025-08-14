@@ -32,11 +32,12 @@ export default function AddFoodDialog({ setHistory, setTodayData }) {
         </DialogHeader>
         
         <DishInput
-            onSelect={(dish, quantity, unit, nutrition) => {
+            onSelect={(dish, quantity, unit, nutrition, dishImage) => {
                 handleAddEntry({
                 dish,
                 quantity,
                 unit,
+                dishImage,
                 nutrition,
                 setHistory,
                 setTodayData,
