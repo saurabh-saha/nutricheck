@@ -26,7 +26,7 @@ export default function AddFoodDialog({ setHistory, setTodayData }) {
         </button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md w-full sm:mt-10 sm:mx-auto ">
         <DialogHeader>
           <DialogTitle>Add Food for Today</DialogTitle>
         </DialogHeader>
