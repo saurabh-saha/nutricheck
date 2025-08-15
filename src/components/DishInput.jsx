@@ -1,4 +1,4 @@
-import { useState, useRef, forwardRef, useEffect } from "react"
+import { useState, useRef, forwardRef } from "react"
 import { getDishSuggestionsFromGemini } from '../utils/gemini.jsx'
 import FadeScale from "./ui/FadeScale";
 
@@ -69,16 +69,6 @@ export default function DishInput({
     const [closing, setClosing] = useState(false);
     const [dishImage, setDishImage] = useState(null);
     const inputRef = useRef(null);
-
-    useEffect(() => {
-      const handleFocus = () => {
-        setTimeout(() => {
-          inputRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-        }, 300); // wait for keyboard animation
-      };
-      inputRef.current?.addEventListener("focus", handleFocus);
-      return () => inputRef.current?.removeEventListener("focus", handleFocus);
-    }, []);
 
     const handleSearch = async () => {
         if (!dish.trim() && !dishImage) return;
