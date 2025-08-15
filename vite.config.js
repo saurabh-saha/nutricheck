@@ -8,8 +8,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Food App',
-        short_name: 'Foodie',
+        name: 'NutriCheck🥗',
+        short_name: 'NutriCheck🥗',
         start_url: '/',
         display: 'standalone',
         background_color: '#ffffff',
