@@ -79,7 +79,7 @@ export default function NutritionTracker() {
               Login Required
             </h2>
             <p className="mb-6 text-gray-700 dark:text-gray-300">
-              Login to track your diet and reach your goals. This is a paid feature.
+              Login to track your diet and reach your goals.
             </p>
             <button
               onClick={() => loginWithGoogle()}
