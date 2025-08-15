@@ -1,4 +1,4 @@
-import { useState, useRef, forwardRef } from "react"
+import { useState, useRef, forwardRef, useEffect } from "react"
 import { getDishSuggestionsFromGemini } from '../utils/gemini.jsx'
 import FadeScale from "./ui/FadeScale";
 
@@ -50,9 +50,12 @@ const ImageInput = forwardRef(({ onChange }, ref) => (
     accept="image/*"
     onChange={(e) => onChange(e.target.files[0])}
     ref={ref}
-    className="border rounded px-3 py-2 w-full bg-white text-gray-800"
+    className="border rounded px-3 py-2 w-full bg-white text-gray-800 
+               focus:border-blue-500 focus:ring-2 focus:ring-blue-300 focus:outline-none"
+    data-focused={true}
   />
 ));
+
 
 export default function DishInput({ 
     onSelect,
@@ -69,6 +72,12 @@ export default function DishInput({
     const [closing, setClosing] = useState(false);
     const [dishImage, setDishImage] = useState(null);
     const inputRef = useRef(null);
+
+    useEffect(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, []);
 
     const handleSearch = async () => {
         if (!dish.trim() && !dishImage) return;
