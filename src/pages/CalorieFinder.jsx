@@ -5,14 +5,29 @@ import DishInput from '../components/DishInput'
 import NutritionResult from '../components/NutritionResult'
 import PreviousSearches from '../components/PreviousSearches'
 import { Soup } from 'lucide-react'
+import { analyticsPromise } from "../utils/firebaseConfig";
+import { logEvent } from "firebase/analytics";
 
 export default function CalorieFinder() {
   const [result, setResult] = useState(null)
   const [previousSearches, setPreviousSearches] = useState([])
 
   useEffect(() => {
+    analyticsPromise.then((analytics) => {
+      if (analytics) {
+        logEvent(analytics, "page_view", {
+          page_title: "CalorieFinder",
+          page_path: "/",
+        });
+        console.log("[GA] Fired page_view");
+      } else {
+        console.warn("[GA skipped] Analytics not supported");
+      }
+    });
+
     const entries = getNutritionHistory()
     setPreviousSearches(entries.map((e) => e.dish))
+  
   }, [])
 
   const handleDishSelect = (dish, quantity, unit, nutrition) => {

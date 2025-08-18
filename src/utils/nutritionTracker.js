@@ -38,7 +38,12 @@ export async function getTrackerHistory() {
     const rawLocal = localStorage.getItem(KEY);
     if (rawLocal) {
       try {
-        localData = JSON.parse(rawLocal);
+        localData = JSON.parse(rawLocal).map(
+          e => ({
+            id: e.id || uuidv4(), // ensure local entries have ids
+            ...e
+          })
+        );
       } catch (e) {
         console.warn("Invalid localStorage data, resetting...");
         localData = [];
@@ -48,7 +53,12 @@ export async function getTrackerHistory() {
     // 2. If logged in, get Firebase data
     if (user) {
       const querySnapshot = await getDocs(collection(db, "users", user.uid, "intakeHistory"));
-      firebaseData = querySnapshot.docs.map(doc => doc.data());
+      firebaseData = querySnapshot.docs.map(
+        doc => ({
+          id: doc.id,
+          ...doc.data()
+        })
+      );
 
       // 3. Find entries in localData that aren't in Firebase
       const firebaseSet = new Set(firebaseData.map(e => `${e.date}-${e.dish}`));
@@ -56,7 +66,8 @@ export async function getTrackerHistory() {
 
       // 4. Push missing local entries to Firebase
       for (const entry of newForFirebase) {
-        await addDoc(collection(db, "users", user.uid, "intakeHistory"), entry);
+        const ref = doc(db, "users", user.uid, "intakeHistory", entry.id);
+        await setDoc(ref, entry);
       }
       
       // 5. Merge all data (Firebase + local, avoiding duplicates)
