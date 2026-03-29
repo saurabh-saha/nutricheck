@@ -49,8 +49,12 @@ export const getDishSuggestionsFromGemini = async (dish, quantity, unit,  dishIm
     `
       Create exactly 3 dish suggestions based on "${dish || 'the dish in the image'}".
       Rule:
-      1. If a dish name is provided, the FIRST suggestion must be exactly that dish.
-      2. If only an image is provided, infer the most likely dish and use it as the first suggestion.
+      1. If a dish name or any food like fruit, egg etc is provided, 
+      the FIRST suggestion MUST be EXACTLY the same string as the input.
+      Do NOT modify, expand, or reinterpret it.
+      Example:
+      - Input: "pomegranate"
+      - Output first name: "pomegranate" (NOT "pomegranate seeds", NOT "pomegranate juice")      2. If only an image is provided, infer the most likely dish and use it as the first suggestion.
       2. The second and third suggestions should be close variants (different styles, toppings, ingredients).
       
       For each suggestion, include:
