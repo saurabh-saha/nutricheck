@@ -16,7 +16,7 @@ export function getDefaultIntake() {
 }
 
 const KEY = 'nutrition-tracker-v2'
-export const CHART_DAYS = 31;
+export const CHART_DAYS = 7;
 
 export function getTodayDate() {
   return formatDate(new Date());
@@ -70,7 +70,7 @@ export async function getTrackerHistory() {
         const ref = doc(db, "users", user.uid, "intakeHistory", entry.id);
         await setDoc(ref, entry);
       }
-      
+
       // 5. Merge all data (Firebase + local, avoiding duplicates)
       const mergedSet = new Map();
       [...firebaseData, ...localData].forEach(e => {
@@ -139,28 +139,28 @@ export function getHistoricalSummary(history) {
 }
 
 export const computeSummary = (entries) => {
-    const sum = {};
-    
-    // Initialize all nutrients from nutrientMap
-    nutrientMap.forEach(({ key }) => {
-      sum[key] = 0;
-    });
-    entries.forEach(e => {
-      for (let key in sum) {
-        let value = e.nutrition[key]
-  
-        if (typeof value === 'string') {
-          // Strip non-numeric characters (like "g", "%", etc.)
-          value = parseFloat(value.replace(/[^\d.-]/g, ''))
-        }
-  
-        if (!isNaN(value)) {
-          sum[key] += value
-        }
+  const sum = {};
+
+  // Initialize all nutrients from nutrientMap
+  nutrientMap.forEach(({ key }) => {
+    sum[key] = 0;
+  });
+  entries.forEach(e => {
+    for (let key in sum) {
+      let value = e.nutrition[key]
+
+      if (typeof value === 'string') {
+        // Strip non-numeric characters (like "g", "%", etc.)
+        value = parseFloat(value.replace(/[^\d.-]/g, ''))
       }
-    })
-  
-    return sum
+
+      if (!isNaN(value)) {
+        sum[key] += value
+      }
+    }
+  })
+
+  return sum
 }
 
 function normalizeNutritionPerUnit(quantity, nutrition) {
@@ -194,8 +194,8 @@ export async function addRecipeWithNormalizedNutrition(dish, quantity, unit, nut
   });
 }
 
-export async function handleAddEntry({ 
-  dish, quantity, unit, dishImage, nutrition, selectedDate, setHistory, setTodayData, onSuccess, onError 
+export async function handleAddEntry({
+  dish, quantity, unit, dishImage, nutrition, selectedDate, setHistory, setTodayData, onSuccess, onError
 }) {
   if (!dish.trim() || !nutrition) return;
 
@@ -204,9 +204,9 @@ export async function handleAddEntry({
   try {
     const entryDate = selectedDate || getTodayDate();
     const imageUrl = await uploadDishImage(dishImage, dish);
-    const newEntry = { 
-      date: entryDate, 
-      dish: fullDish, 
+    const newEntry = {
+      date: entryDate,
+      dish: fullDish,
       nutrition,
       imageUrl
     };
@@ -234,5 +234,4 @@ export async function handleAddEntry({
 }
 
 
-  
-  
+
