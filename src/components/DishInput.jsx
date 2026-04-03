@@ -1,10 +1,11 @@
-import { useState, useRef, forwardRef, useEffect } from "react"
+import { useState, useRef, forwardRef, useEffect, useMemo } from "react"
 import { getDishSuggestionsFromGemini } from '../utils/gemini.jsx'
 import FadeScale from "./ui/FadeScale";
 
-function FormInput({ value, onChange, placeholder, type = "text" }) {
+function FormInput({ value, onChange, placeholder, type = "text", inputRef }) {
     return (
       <input
+        ref={inputRef}
         type={type}
         value={value}
         onChange={onChange}
@@ -60,6 +61,8 @@ const ImageInput = forwardRef(({ onChange }, ref) => (
 export default function DishInput({ 
     onSelect,
     onClose,
+    selectedDate,
+    setSelectedDate,
     initialDish = "",
     initialQuantity = 1,
     initialUnit = "bowl"
@@ -71,34 +74,38 @@ export default function DishInput({
     const [result, setResult] = useState(null);
     const [closing, setClosing] = useState(false);
     const [dishImage, setDishImage] = useState(null);
-    const inputRef = useRef(null);
+    const textInputRef = useRef(null);
 
     useEffect(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
+      textInputRef.current?.focus();
     }, []);
 
-    const handleSearch = async () => {
-        if (!dish.trim() && !dishImage) return;
+    const handleSearch = async (searchTerm = dish) => {
+        if (!searchTerm.trim() && !dishImage) return;
         setIsLoading(true);
-        const suggestions = await getDishSuggestionsFromGemini(dish, quantity, unit, dishImage);
+        const suggestions = await getDishSuggestionsFromGemini(searchTerm, quantity, unit, dishImage);
         setIsLoading(false);
     
-        if (suggestions.error) {
-            alert(`⚠️ Gemini API Error: ${suggestions.error}`);
-        } else if (Array.isArray(suggestions) && suggestions.length > 0) {
+        if (suggestions && Array.isArray(suggestions) && suggestions.length > 0) {
             setResult(suggestions);
-        } else {
-        alert("❌ No suggestions found");
         }
     };
+
+    // Auto-search on writing
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            if (dish.length >= 3) {
+                handleSearch();
+            }
+        }, 800);
+        return () => clearTimeout(timeout);
+    }, [dish]);
 
     const handleConfirmSelection = (item) => {
         if (item) {
           setClosing(true); // start fade animation
           setTimeout(() => {
-            onSelect?.(item.name, quantity, unit, item.nutrition, dishImage);
+            onSelect?.(item.name, quantity, unit, item.nutrition, dishImage, selectedDate);
             setDish("");
             setQuantity(1);
             setUnit("bowl");
@@ -109,17 +116,35 @@ export default function DishInput({
         }
       };
 
+    const { minDate, maxDate } = useMemo(() => {
+        const todayVal = new Date();
+        const currentDay = todayVal.getDay();
+        const daysToMonday = currentDay === 0 ? 6 : currentDay - 1;
+        const monday = new Date(todayVal);
+        monday.setDate(todayVal.getDate() - daysToMonday);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        const fmt = (d) => {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        };
+        return { minDate: fmt(monday), maxDate: fmt(sunday) };
+    }, []);
+
     return (
         <FadeScale isClosing={closing}>
             <div className="flex flex-col gap-2 w-full max-w-md">
                 {/* Dish input */}
                 <FormInput
+                inputRef={textInputRef}
                 value={dish}
                 onChange={(e) => setDish(e.target.value)}
-                placeholder="Enter a dish..."
+                placeholder="Enter a dish (e.g. 2 eggs, oats)..."
                 />
 
-                <ImageInput ref={inputRef} onChange={setDishImage} />
+                <ImageInput onChange={setDishImage} />
                 
                 {dishImage && (
                   <div className="flex justify-center mt-2 relative">
@@ -129,10 +154,7 @@ export default function DishInput({
                       className="w-32 h-32 sm:w-40 sm:h-40 object-cover rounded-lg shadow-md border border-gray-300"
                     />
                     <button
-                      onClick={() => {
-                        setDishImage(null)
-                        if (inputRef.current) inputRef.current.value = "";
-                      }}
+                      onClick={() => setDishImage(null)}
                       className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
                     >
                       ✕
@@ -140,8 +162,16 @@ export default function DishInput({
                   </div>
                 )}
                 
-                {/* Quantity + Unit */}
+                {/* Quantity + Unit + Date */}
                 <div className="flex gap-2">
+                <input 
+                    type="date"
+                    value={selectedDate}
+                    onChange={e => setSelectedDate(e.target.value)}
+                    min={minDate}
+                    max={maxDate}
+                    className="border rounded px-3 py-2 flex-1 bg-white text-gray-800"
+                />
                 <ServingSizeDropdown
                     quantity={quantity}
                     setQuantity={setQuantity}
@@ -152,11 +182,11 @@ export default function DishInput({
         
                 {/* Button */}
                 <button
-                    onClick={handleSearch}
+                    onClick={() => handleSearch()}
                     className="bg-blue-600 text-white px-4 py-2 rounded w-full"
                     disabled={isLoading}
                 >
-                {isLoading ? 'Loading...' : 'Generate'}
+                {isLoading ? 'Searching...' : 'Explore Variations'}
                 </button>
 
                 {/* Results List */}

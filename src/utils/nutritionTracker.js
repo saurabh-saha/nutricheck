@@ -194,16 +194,17 @@ export async function addRecipeWithNormalizedNutrition(dish, quantity, unit, nut
 }
 
 export async function handleAddEntry({ 
-  dish, quantity, unit, dishImage, nutrition, setHistory, setTodayData, onSuccess, onError 
+  dish, quantity, unit, dishImage, nutrition, selectedDate, setHistory, setTodayData, onSuccess, onError 
 }) {
   if (!dish.trim() || !nutrition) return;
 
   const fullDish = `${quantity} ${unit} of ${dish}`;
 
   try {
+    const entryDate = selectedDate || getTodayDate();
     const imageUrl = await uploadDishImage(dishImage, dish);
     const newEntry = { 
-      date: getTodayDate(), 
+      date: entryDate, 
       dish: fullDish, 
       nutrition,
       imageUrl

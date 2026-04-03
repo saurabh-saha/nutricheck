@@ -1,4 +1,4 @@
-import { useRef } from "react"
+import { useRef, useState } from "react"
 import {
   Dialog,
   DialogTrigger,
@@ -10,9 +10,10 @@ import {
 import { toast } from "../hooks/use-toast"
 
 import DishInput from "./DishInput"
-import { handleAddEntry } from "../utils/nutritionTracker"
+import { handleAddEntry, getTodayDate } from "../utils/nutritionTracker"
 
 export default function AddFoodDialog({ setHistory, setTodayData }) {
+  const [selectedDate, setSelectedDate] = useState(getTodayDate())
   const closeRef = useRef(null)
 
   return (
@@ -28,17 +29,20 @@ export default function AddFoodDialog({ setHistory, setTodayData }) {
 
       <DialogContent className="max-w-md w-full sm:mt-10 sm:mx-auto ">
         <DialogHeader>
-          <DialogTitle>Add Food for Today</DialogTitle>
+          <DialogTitle>Add Food Entry - {selectedDate}</DialogTitle>
         </DialogHeader>
         
         <DishInput
-            onSelect={(dish, quantity, unit, nutrition, dishImage) => {
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            onSelect={(dish, quantity, unit, nutrition, dishImage, date) => {
                 handleAddEntry({
                 dish,
                 quantity,
                 unit,
                 dishImage,
                 nutrition,
+                selectedDate: date,
                 setHistory,
                 setTodayData,
                 onSuccess: () => {
