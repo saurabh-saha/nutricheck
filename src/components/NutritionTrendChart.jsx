@@ -1,22 +1,22 @@
 // components/NutritionTrendChart.jsx
 import React, {useState} from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, ReferenceLine} from 'recharts'
-import { nutrientMap } from '../utils/nutritionTracker';
+import { nutrientMap, CHART_DAYS } from '../utils/nutritionTracker';
 import { Cell } from 'recharts';
 
 export function NutritionBarChart({ data, selectedKey, recommendedIntake, onSelectDate }) {
   const current = nutrientMap.find(n => n.key === selectedKey);
   const recommendation = recommendedIntake[current.key] || 0;
 
-  // Calculate average of last 7 days (or fewer if less data)
-  const last7Days = data.slice(-7);
-  const total = last7Days.reduce((sum, day) => sum + (day[selectedKey] || 0), 0);
-  const average = (total / last7Days.length).toFixed(1);
+  // Calculate average of last N days (or fewer if less data)
+  const lastNDays = data.slice(-CHART_DAYS);
+  const total = lastNDays.reduce((sum, day) => sum + (day[selectedKey] || 0), 0);
+  const average = (total / lastNDays.length).toFixed(1);
 
   const [selectedDate, setSelectedDate] = useState(null);
 
   // Display value depends on selectedDate or average
-  let displayValue = `7 Day Average: ${average} ${current.unit}`;
+  let displayValue = `${CHART_DAYS} Day Average: ${average} ${current.unit}`;
   // if (selectedDate) {
   //   // Find selected day data from data
   //   const dayData = data.find(d => d.date === selectedDate);

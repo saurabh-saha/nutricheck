@@ -16,7 +16,7 @@ export function getDefaultIntake() {
 }
 
 const KEY = 'nutrition-tracker-v2'
-export const CHART_DAYS = 7;
+export const CHART_DAYS = 31;
 
 export function getTodayDate() {
   return formatDate(new Date());
@@ -110,7 +110,7 @@ export const nutrientMap = [
 ];
 
 
-export function getLast7DaysSummary(history) {
+export function getHistoricalSummary(history) {
   const daysMap = {};
 
   // Group history by date
