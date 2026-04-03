@@ -16,6 +16,7 @@ export function getDefaultIntake() {
 }
 
 const KEY = 'nutrition-tracker-v2'
+export const CHART_DAYS = 7;
 
 export function getTodayDate() {
   return formatDate(new Date());
@@ -118,18 +119,18 @@ export function getLast7DaysSummary(history) {
     daysMap[e.date].push(e);
   });
 
-  // Generate last 7 dates from today backwards
+  // Generate last N dates from today backwards
   const today = new Date();
-  const last7Dates = [];
-  for (let i = 0; i < 7; i++) {
+  const lastNDates = [];
+  for (let i = 0; i < CHART_DAYS; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
     const dateStr = formatDate(d)
-    last7Dates.push(dateStr);
+    lastNDates.push(dateStr);
   }
 
   // Build summary for each day (empty if no entries)
-  return last7Dates
+  return lastNDates
     .reverse() // so oldest comes first
     .map(date => ({
       date,

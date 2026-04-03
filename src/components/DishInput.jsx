@@ -1,5 +1,6 @@
 import { useState, useRef, forwardRef, useEffect, useMemo } from "react"
 import { getDishSuggestionsFromGemini } from '../utils/gemini.jsx'
+import { CHART_DAYS } from "../utils/nutritionTracker"
 import FadeScale from "./ui/FadeScale";
 
 function FormInput({ value, onChange, placeholder, type = "text", inputRef }) {
@@ -118,19 +119,15 @@ export default function DishInput({
 
     const { minDate, maxDate } = useMemo(() => {
         const todayVal = new Date();
-        const currentDay = todayVal.getDay();
-        const daysToMonday = currentDay === 0 ? 6 : currentDay - 1;
-        const monday = new Date(todayVal);
-        monday.setDate(todayVal.getDate() - daysToMonday);
-        const sunday = new Date(monday);
-        sunday.setDate(monday.getDate() + 6);
+        const minVal = new Date(todayVal);
+        minVal.setDate(todayVal.getDate() - (CHART_DAYS - 1));
         const fmt = (d) => {
             const y = d.getFullYear();
             const m = String(d.getMonth() + 1).padStart(2, '0');
             const day = String(d.getDate()).padStart(2, '0');
             return `${y}-${m}-${day}`;
         };
-        return { minDate: fmt(monday), maxDate: fmt(sunday) };
+        return { minDate: fmt(minVal), maxDate: fmt(todayVal) };
     }, []);
 
     return (
