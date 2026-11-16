@@ -1,4 +1,4 @@
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, collection, addDoc, getDocs, doc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { uploadDishImage } from "../utils/firebaseLogin"
 
@@ -15,7 +15,6 @@ export function getDefaultIntake() {
   };
 }
 
-const KEY = 'nutrition-tracker-v2'
 export const CHART_DAYS = 7;
 
 export const MEALS = [
@@ -50,86 +49,131 @@ export function formatDate(date) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-export async function getTrackerHistory() {
+// ---------------------------------------------------------------------------
+// Entry storage
+// - Logged in: Firestore users/{uid}/intakeHistory is the source of truth.
+// - Guest: entries live in localStorage on this device (GUEST_KEY) and are
+//   copied to Firestore (same ids, so it's safe to retry) on the next login.
+// ---------------------------------------------------------------------------
+const GUEST_KEY = 'nutricheck-guest-entries';
+
+const readGuestEntries = () => {
   try {
-    const user = auth.currentUser;
-    let localData = [];
-
-    // 1. Get localStorage data
-    const rawLocal = localStorage.getItem(KEY);
-    if (rawLocal) {
-      try {
-        localData = JSON.parse(rawLocal).map(
-          e => ({
-            id: e.id || crypto.randomUUID(), // ensure local entries have ids
-            ...e
-          })
-        );
-      } catch {
-        console.warn("Invalid localStorage data, resetting...");
-        localData = [];
-      }
-    }
-
-    // 2. If logged in, Firestore is the source of truth (entries can be
-    //    edited/deleted from the History page, so a stale local copy must
-    //    never be merged back in).
-    if (user) {
-      const firebaseData = await fetchFirestoreEntries(user.uid);
-      localStorage.setItem(KEY, JSON.stringify(firebaseData));
-      return firebaseData;
-    }
-
-    // 7. If not logged in, just return local data
-    return localData;
-  } catch (err) {
-    console.error("Error syncing tracker history:", err);
+    const list = JSON.parse(localStorage.getItem(GUEST_KEY) || '[]');
+    return Array.isArray(list) ? list.filter(e => e && e.id) : [];
+  } catch {
     return [];
   }
-}
+};
+const writeGuestEntries = (list) => localStorage.setItem(GUEST_KEY, JSON.stringify(list));
+
+export const hasGuestEntries = () => readGuestEntries().length > 0;
 
 async function fetchFirestoreEntries(uid) {
   const snapshot = await getDocs(collection(db, "users", uid, "intakeHistory"));
   return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-// ---- History page: list / edit / delete individual entries ----
+let migration = null;
+// Copy guest entries into the logged-in account, then clear them locally.
+export function migrateGuestEntries(uid) {
+  if (!migration) {
+    migration = (async () => {
+      const guest = readGuestEntries();
+      for (const { id, ...data } of guest) {
+        await setDoc(doc(db, "users", uid, "intakeHistory", id), data);
+      }
+      if (guest.length) {
+        // Keep anything added while we were copying.
+        const copied = new Set(guest.map(e => e.id));
+        writeGuestEntries(readGuestEntries().filter(e => !copied.has(e.id)));
+      }
+      return guest.length;
+    })().finally(() => { migration = null; });
+  }
+  return migration;
+}
 
-const entryRef = (id) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("Not logged in");
-  return doc(db, "users", user.uid, "intakeHistory", id);
-};
+export async function getTrackerHistory() {
+  try {
+    const user = auth.currentUser;
+    if (!user) return readGuestEntries();
 
-const refreshLocalCache = async () => {
-  const user = auth.currentUser;
-  if (!user) return [];
-  const all = await fetchFirestoreEntries(user.uid);
-  localStorage.setItem(KEY, JSON.stringify(all));
-  return all;
-};
+    try {
+      await migrateGuestEntries(user.uid);
+    } catch (err) {
+      console.error("Couldn't move guest entries to your account:", err);
+    }
+    return await fetchFirestoreEntries(user.uid);
+  } catch (err) {
+    console.error("Error loading tracker history:", err);
+    return [];
+  }
+}
 
-// All entries for the logged-in user, newest date first.
+// Newest first: by date, then by when it was logged.
+export const byNewest = (a, b) =>
+  (b.date || "").localeCompare(a.date || "") || (b.createdAt || 0) - (a.createdAt || 0);
+
+// All entries (account or guest), newest date first.
 export async function getAllEntries() {
-  const all = await refreshLocalCache();
-  return all.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  const user = auth.currentUser;
+  if (!user) return readGuestEntries().sort(byNewest);
+  await migrateGuestEntries(user.uid).catch(err => console.error(err));
+  return (await fetchFirestoreEntries(user.uid)).sort(byNewest);
+}
+
+// Save one entry. `dish` is the full label, e.g. "1 bowl of dal".
+export async function logEntry({ dish, nutrition, date, meal, imageUrl = null }) {
+  const entry = {
+    date: date || getTodayDate(),
+    dish,
+    meal: meal || defaultMealForNow(),
+    nutrition,
+    imageUrl,
+    createdAt: Date.now(),
+  };
+  const user = auth.currentUser;
+  if (user) {
+    const ref = await addDoc(collection(db, "users", user.uid, "intakeHistory"), entry);
+    return { id: ref.id, ...entry };
+  }
+  const saved = { id: crypto.randomUUID(), ...entry };
+  writeGuestEntries([...readGuestEntries(), saved]);
+  return saved;
 }
 
 export async function updateEntry(id, { date, dish, nutrition, meal }) {
-  await updateDoc(entryRef(id), { date, dish, nutrition, ...(meal ? { meal } : {}) });
-  await refreshLocalCache();
+  const changes = { date, dish, nutrition, ...(meal ? { meal } : {}) };
+  const user = auth.currentUser;
+  if (user) {
+    await updateDoc(doc(db, "users", user.uid, "intakeHistory", id), changes);
+    return;
+  }
+  writeGuestEntries(readGuestEntries().map(e => (e.id === id ? { ...e, ...changes } : e)));
 }
 
 export async function deleteEntry(id) {
-  await deleteDoc(entryRef(id));
-  await refreshLocalCache();
+  const user = auth.currentUser;
+  if (user) {
+    await deleteDoc(doc(db, "users", user.uid, "intakeHistory", id));
+    return;
+  }
+  writeGuestEntries(readGuestEntries().filter(e => e.id !== id));
 }
 
-export async function saveToTracker(entry) {
-  const current = await getTrackerHistory(); // wait for array
-  const updated = [...current, entry];
-  localStorage.setItem(KEY, JSON.stringify(updated));
-  return updated;
+// Distinct dishes logged most recently (for one-tap re-logging).
+export function getRecentDishes(entries, limit = 8) {
+  const seen = new Set();
+  const recent = [];
+  for (const e of [...entries].sort(byNewest)) {
+    const key = (e.dish || "").trim().toLowerCase();
+    if (!key || seen.has(key) || !e.nutrition) continue;
+    seen.add(key);
+    recent.push({ dish: e.dish, nutrition: e.nutrition, imageUrl: e.imageUrl || null });
+    if (recent.length >= limit) break;
+  }
+  return recent;
 }
 
 export const nutrientMap = [
@@ -210,13 +254,8 @@ function normalizeNutritionPerUnit(quantity, nutrition) {
   return normalized;
 }
 
-export async function addRecipeWithNormalizedNutrition(dish, quantity, unit, nutrition, dishImageFile) {
+export async function addRecipeWithNormalizedNutrition(dish, quantity, unit, nutrition, imageUrl = null) {
   const nutritionPerUnit = normalizeNutritionPerUnit(quantity, nutrition);
-
-  let imageUrl = null;
-  if (dishImageFile) {
-    imageUrl = await uploadDishImage(dishImageFile, dish);
-  }
 
   await addDoc(collection(db, "recipes"), {
     name: dish.trim(),
@@ -234,38 +273,34 @@ export async function handleAddEntry({
 
   const fullDish = `${quantity} ${unit} of ${dish}`;
 
+  let imageUrl = null;
   try {
-    const entryDate = selectedDate || getTodayDate();
-    const imageUrl = await uploadDishImage(dishImage, dish);
-    const newEntry = {
-      date: entryDate,
-      dish: fullDish,
-      meal: meal || defaultMealForNow(),
-      nutrition,
-      imageUrl
-    };
-
-    // 1. Save locally (and await because it reads Firebase first)
-    const updated = await saveToTracker(newEntry);
-    setHistory(updated);
-
-    // 2. Update today's summary
-    const today = updated.filter(e => e.date === getTodayDate());
-    setTodayData(computeSummary(today));
-
-    // 3. Save to Firestore
-    const user = auth.currentUser;
-    if (user) {
-      await addDoc(collection(db, "users", user.uid, "intakeHistory"), newEntry);
-    }
-
-    await addRecipeWithNormalizedNutrition(dish, quantity, unit, nutrition, imageUrl)
+    imageUrl = await uploadDishImage(dishImage, dish);
+    await logEntry({ dish: fullDish, nutrition, date: selectedDate, meal, imageUrl });
+    await refreshTrackerState({ setHistory, setTodayData });
     onSuccess?.();
   } catch (err) {
     console.error("Error adding entry:", err);
     onError?.();
+    return;
+  }
+
+  // Shared recipe catalogue; best effort, never blocks logging.
+  if (auth.currentUser) {
+    addRecipeWithNormalizedNutrition(dish, quantity, unit, nutrition, imageUrl)
+      .catch(err => console.warn("Couldn't save recipe:", err));
   }
 }
 
+// Re-log a recent/favourite item in one tap.
+export async function quickAddEntry({ item, date, meal, setHistory, setTodayData }) {
+  await logEntry({ dish: item.dish, nutrition: item.nutrition, date, meal, imageUrl: item.imageUrl || null });
+  await refreshTrackerState({ setHistory, setTodayData });
+}
 
-
+export async function refreshTrackerState({ setHistory, setTodayData }) {
+  const all = await getTrackerHistory();
+  setHistory?.(all);
+  setTodayData?.(computeSummary(all.filter(e => e.date === getTodayDate())));
+  return all;
+}

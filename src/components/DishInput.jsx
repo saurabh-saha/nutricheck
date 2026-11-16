@@ -2,6 +2,7 @@ import { useState, useRef, forwardRef, useEffect, useMemo } from "react"
 import { getDishSuggestionsFromGemini } from '../utils/gemini.jsx'
 import { CHART_DAYS, MEALS, defaultMealForNow } from "../utils/nutritionTracker"
 import FadeScale from "./ui/FadeScale";
+import QuickAdd from "./QuickAdd";
 
 function FormInput({ value, onChange, placeholder, type = "text", inputRef }) {
     return (
@@ -66,7 +67,8 @@ export default function DishInput({
     setSelectedDate,
     initialDish = "",
     initialQuantity = 1,
-    initialUnit = "bowl"
+    initialUnit = "bowl",
+    quickAdd = null // { favorites, recent, onAdd(item, date, meal), onToggleFavorite, busy }
   }) {
     const [dish, setDish] = useState(initialDish);
     const [quantity, setQuantity] = useState(initialQuantity);
@@ -201,6 +203,17 @@ export default function DishInput({
                       </button>
                     ))}
                   </div>
+                )}
+
+                {/* One-tap re-log of favourites / recent foods */}
+                {isTracking && quickAdd && !dish.trim() && !dishImage && (
+                  <QuickAdd
+                    favorites={quickAdd.favorites}
+                    recent={quickAdd.recent}
+                    busy={quickAdd.busy}
+                    onToggleFavorite={quickAdd.onToggleFavorite}
+                    onAdd={(item) => quickAdd.onAdd(item, selectedDate, meal)}
+                  />
                 )}
 
                 {/* Quantity + Unit + Date */}

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { onAuthStateChanged } from "firebase/auth";
-import { Pencil, Trash2, Check, X, Search } from "lucide-react";
+import { Pencil, Trash2, Check, X, Search, Star } from "lucide-react";
 import Layout from "../components/Layout";
 import { auth } from "../utils/firebaseConfig";
-import { loginWithGoogle } from "../utils/firebaseLogin";
+import GuestBanner from "../components/GuestBanner";
+import { getFavorites, addFavorite, removeFavorite, favoriteKey } from "../utils/favorites";
 import { getAllEntries, updateEntry, deleteEntry, nutrientMap, MEALS, mealOrder } from "../utils/nutritionTracker";
 
 const PAGE_SIZE = 50;
@@ -100,7 +101,7 @@ function EditRow({ entry, onCancel, onSave, saving }) {
   );
 }
 
-function EntryRow({ entry, onEdit, onDelete, busy }) {
+function EntryRow({ entry, onEdit, onDelete, onToggleFavorite, isFavorite, busy }) {
   const n = entry.nutrition || {};
   return (
     <div className="flex items-center gap-3 p-3">
@@ -122,6 +123,11 @@ function EntryRow({ entry, onEdit, onDelete, busy }) {
           {toNumber(n.calories)} kcal · P {toNumber(n.protein)}g · C {toNumber(n.carbs)}g · F {toNumber(n.fat)}g · Fiber {toNumber(n.fiber)}g
         </div>
       </div>
+      <button onClick={onToggleFavorite} disabled={busy} aria-pressed={isFavorite}
+        aria-label={isFavorite ? `Remove ${entry.dish} from favourites` : `Add ${entry.dish} to favourites`}
+        className="p-2 rounded hover:bg-yellow-50 dark:hover:bg-yellow-900/20 disabled:opacity-50">
+        <Star size={16} className={isFavorite ? "fill-yellow-400 text-yellow-500" : "text-gray-400"} />
+      </button>
       <button onClick={onEdit} disabled={busy} aria-label={`Edit ${entry.dish}`}
         className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 disabled:opacity-50">
         <Pencil size={16} />
@@ -143,15 +149,21 @@ export default function History() {
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [editingId, setEditingId] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [favoriteKeys, setFavoriteKeys] = useState(new Set());
+
+  const loadFavorites = async () => {
+    try {
+      setFavoriteKeys(new Set((await getFavorites()).map((f) => favoriteKey(f.dish))));
+    } catch (err) {
+      console.error("Couldn't load favourites:", err);
+    }
+  };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      if (!u) {
-        setEntries([]);
-        setLoading(false);
-        return;
-      }
+    // Guests see entries saved on this device; logged-in users see their account.
+    const unsubscribe = onAuthStateChanged(auth, async () => {
       setLoading(true);
+      loadFavorites();
       try {
         setEntries((await getAllEntries()).sort(byDateThenMeal));
         setError("");
@@ -197,6 +209,18 @@ export default function History() {
     }
   };
 
+  const handleToggleFavorite = async (entry) => {
+    const key = favoriteKey(entry.dish);
+    try {
+      if (favoriteKeys.has(key)) await removeFavorite(entry.dish);
+      else await addFavorite({ dish: entry.dish, nutrition: entry.nutrition, imageUrl: entry.imageUrl || null });
+      await loadFavorites();
+    } catch (err) {
+      console.error("Failed to update favourite:", err);
+      setError("Couldn't update favourites. Please try again.");
+    }
+  };
+
   const handleDelete = async (entry) => {
     if (!window.confirm(`Delete "${entry.dish}" from ${formatDay(entry.date)}? This can't be undone.`)) return;
     setBusyId(entry.id);
@@ -212,20 +236,6 @@ export default function History() {
     }
   };
 
-  if (!authLoading && !user) {
-    return (
-      <Layout>
-        <div className="text-center space-y-4 py-12">
-          <h1 className="text-xl font-semibold">Your food history</h1>
-          <p className="text-gray-600 dark:text-gray-400">Log in to see, edit and delete everything you've tracked.</p>
-          <button onClick={() => loginWithGoogle()} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded">
-            Login with Google
-          </button>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
     <Layout>
       <div className="space-y-4">
@@ -237,6 +247,8 @@ export default function History() {
             </span>
           )}
         </div>
+
+        {!authLoading && !user && <GuestBanner />}
 
         <label className="relative block">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -283,6 +295,8 @@ export default function History() {
                           key={entry.id}
                           entry={entry}
                           busy={busyId === entry.id}
+                          isFavorite={favoriteKeys.has(favoriteKey(entry.dish))}
+                          onToggleFavorite={() => handleToggleFavorite(entry)}
                           onEdit={() => setEditingId(entry.id)}
                           onDelete={() => handleDelete(entry)}
                         />
