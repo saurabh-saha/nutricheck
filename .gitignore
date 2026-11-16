@@ -23,3 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 *.env
+
+# Environment files (secrets live in Netlify / Firebase, never in git)
+.env
+.env.*
+!.env.example
