@@ -75,6 +75,7 @@ export default function DishInput({
     const [result, setResult] = useState(null);
     const [closing, setClosing] = useState(false);
     const [dishImage, setDishImage] = useState(null);
+    const [searchError, setSearchError] = useState("");
     const textInputRef = useRef(null);
 
     useEffect(() => {
@@ -98,7 +99,13 @@ export default function DishInput({
 
         const requestId = ++latestRequestRef.current;
         setIsLoading(true);
-        const suggestions = await getDishSuggestionsFromGemini(searchTerm, quantity, unit, dishImage);
+        setSearchError("");
+        let suggestions = [];
+        try {
+            suggestions = await getDishSuggestionsFromGemini(searchTerm, quantity, unit, dishImage);
+        } catch (err) {
+            if (requestId === latestRequestRef.current) setSearchError(err.message || "Search failed. Please try again.");
+        }
         if (requestId !== latestRequestRef.current) return; // a newer search superseded this one
         setIsLoading(false);
 
@@ -202,6 +209,10 @@ export default function DishInput({
                 >
                 {isLoading ? 'Searching...' : 'Explore Variations'}
                 </button>
+
+                {searchError && (
+                    <p role="alert" className="text-sm text-red-600 dark:text-red-400">{searchError}</p>
+                )}
 
                 {/* Results List */}
                 {Array.isArray(result) && result.length > 0 && (

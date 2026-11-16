@@ -11,6 +11,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@netlify/blobs": "^11.1.9",
     "@radix-ui/react-dialog": "^1.1.14",
     "@radix-ui/react-switch": "^1.2.5",
     "@radix-ui/react-toast": "^1.2.14",
@@ -20,6 +21,7 @@
     "clsx": "^2.1.1",
     "firebase": "^12.0.0",
     "framer-motion": "^12.23.12",
+    "jose": "^6.2.17",
     "lucide-react": "^0.536.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

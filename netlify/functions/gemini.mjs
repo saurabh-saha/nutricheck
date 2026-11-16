@@ -2,6 +2,7 @@
 // and never reaches the browser. Prompts are built here, so this endpoint
 // can't be used as a general-purpose Gemini proxy.
 import { extractJsonFromText } from '../../src/utils/extractJson.js';
+import { checkOrigin, verifyFirebaseUser, consumeQuota, readCache, writeCache } from '../lib/guard.mjs';
 
 const MODELS = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest'];
 const DEADLINE_MS = 9000; // stay under Netlify's synchronous function limit
@@ -55,8 +56,16 @@ const callGemini = async (apiKey, model, parts, timeoutMs) => {
   return (data.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('');
 };
 
-export default async (req) => {
+export default async (req, context) => {
   if (req.method !== 'POST') return json(405, { error: 'Method not allowed' });
+  if (!checkOrigin(req)) return json(403, { error: 'Forbidden' });
+
+  let uid = null;
+  try {
+    uid = await verifyFirebaseUser(req);
+  } catch {
+    return json(401, { error: 'Your session expired. Please log in again.' });
+  }
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return json(500, { error: 'GEMINI_API_KEY is not configured' });
@@ -85,6 +94,25 @@ export default async (req) => {
   const parts = [{ text: kind === 'nutrition' ? nutritionPrompt(serving) : suggestionsPrompt(serving) }];
   if (image && kind === 'suggestions') parts.push({ inlineData: { data: image.data, mimeType: image.mimeType } });
 
+  // Same text lookup -> same answer for everyone, and no extra Gemini call.
+  const cacheParts = image ? null : [kind, dish, quantity, unit];
+  if (cacheParts) {
+    try {
+      const cached = await readCache(cacheParts);
+      if (cached) return json(200, { result: cached, cached: true });
+    } catch (err) {
+      console.warn('Cache read failed:', err.message);
+    }
+  }
+
+  let blocked = null;
+  try {
+    blocked = await consumeQuota({ uid, ip: context?.ip });
+  } catch (err) {
+    console.error('Quota check failed, allowing request:', err.message);
+  }
+  if (blocked) return json(429, { error: blocked });
+
   const deadline = Date.now() + DEADLINE_MS;
   const errors = [];
   for (const model of MODELS) {
@@ -93,7 +121,10 @@ export default async (req) => {
     try {
       const text = await callGemini(apiKey, model, parts, model === MODELS[0] ? Math.min(6000, remaining) : remaining);
       const parsed = extractJsonFromText(text);
-      if (parsed) return json(200, { result: parsed });
+      if (parsed) {
+        if (cacheParts) await writeCache(cacheParts, parsed).catch((err) => console.warn('Cache write failed:', err.message));
+        return json(200, { result: parsed });
+      }
       errors.push(`${model}: unparseable response`);
     } catch (err) {
       errors.push(err.name === 'TimeoutError' ? `${model}: timed out` : err.message);

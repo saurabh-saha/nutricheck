@@ -1,6 +1,7 @@
 // Gemini is called through the Netlify Function in netlify/functions/gemini.mjs.
 // The API key stays on the server; nothing secret is bundled into the browser.
 export { extractJsonFromText } from './extractJson.js';
+import { auth } from './firebaseConfig';
 
 const GEMINI_ENDPOINT = '/.netlify/functions/gemini';
 const CLIENT_TIMEOUT_MS = 15000;
@@ -20,9 +21,14 @@ const imageToBase64Jpeg = async (file) => {
 };
 
 const callGemini = async (payload) => {
+  // Logged-in users get a higher daily limit; the server verifies this token.
+  const token = await auth.currentUser?.getIdToken().catch(() => null);
   const res = await fetch(GEMINI_ENDPOINT, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify(payload),
     signal: AbortSignal.timeout(CLIENT_TIMEOUT_MS),
   });
@@ -40,13 +46,14 @@ export const getNutritionFromGemini = async (dish, quantity = 1, unit = 'bowl') 
   }
 };
 
+// Throws an Error with a user-facing message (e.g. daily limit reached).
 export const getDishSuggestionsFromGemini = async (dish, quantity, unit, dishImage) => {
+  const image = dishImage ? await imageToBase64Jpeg(dishImage) : undefined;
   try {
-    const image = dishImage ? await imageToBase64Jpeg(dishImage) : undefined;
     const result = await callGemini({ kind: 'suggestions', dish, quantity, unit, image });
     return Array.isArray(result) ? result : [];
   } catch (err) {
     console.error('Gemini error:', err);
-    return [];
+    throw new Error(err.name === 'TimeoutError' ? 'That took too long. Please try again.' : err.message);
   }
 };
