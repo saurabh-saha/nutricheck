@@ -7,7 +7,8 @@ import { checkOrigin, verifyFirebaseUser, consumeQuota, readCache, writeCache } 
 
 const MODELS = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest'];
 const DEADLINE_MS = 9000; // stay under Netlify's synchronous function limit
-const MAX_IMAGE_BASE64 = 4_000_000; // ~3 MB image; request body limit is 6 MB
+const MAX_IMAGES = 3;
+const MAX_IMAGE_BASE64 = 1_500_000; // per photo (~1.1 MB); body limit is 6 MB
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const IMAGES = ['badfats.webp', 'calorie.webp', 'carbs.webp', 'fiber.webp', 'goodfats.jpg', 'minerals.jpg', 'protein.webp', 'vitamins.webp'];
 
@@ -22,11 +23,12 @@ const clean = (v, max = 100) => String(v ?? '').replace(/["`\\]/g, '').slice(0, 
 
 // `dish` is just the food name ("idli"); `serving` adds the amount for the nutrition.
 const suggestionsPrompt = (dish, serving) => `
-Create exactly 3 dish suggestions for ${serving ? `this serving: "${serving}"` : 'the dish in the image'}.
+Create exactly 3 dish suggestions for ${serving ? `this serving: "${serving}"` : 'the meal in the photo(s)'}.
+If photos are attached, they show the same meal (possibly from different angles or parts of the plate).
 Rules:
 1. ${dish
     ? `The FIRST suggestion's name MUST be exactly "${dish}". Do not modify, expand, or reinterpret it.`
-    : 'Infer the most likely dish from the image and use it as the first suggestion.'}
+    : 'Infer the most likely dish from the photo(s) and use it as the first suggestion.'}
 2. The second and third suggestions should be close variants (different styles, toppings, ingredients).
 3. Names are dish names only. Never put the quantity or unit in the name (write "Masala dosa", not "1 piece of Masala dosa").
 4. Nutrition is for the FULL serving described above (or what is visible in the image), not per 100 g.
@@ -80,25 +82,30 @@ export default async (req, context) => {
     return json(400, { error: 'Invalid JSON body' });
   }
 
-  const { kind = 'suggestions', image } = body || {};
+  const { kind = 'suggestions' } = body || {};
+  // Up to 3 photos of the same meal; `image` is the older single-photo field.
+  const images = (Array.isArray(body?.images) ? body.images : body?.image ? [body.image] : []).filter(Boolean);
   const dish = clean(body?.dish);
   const quantity = clean(body?.quantity, 10) || '1';
   const unit = clean(body?.unit, 20) || 'bowl';
 
   if (!['suggestions', 'nutrition'].includes(kind)) return json(400, { error: 'Unknown kind' });
-  if (!dish && !image) return json(400, { error: 'Provide a dish or an image' });
+  if (!dish && !images.length) return json(400, { error: 'Provide a dish or a photo' });
   if (kind === 'nutrition' && !dish) return json(400, { error: 'Provide a dish' });
-  if (image) {
-    if (!ALLOWED_IMAGE_TYPES.includes(image.mimeType)) return json(400, { error: 'Unsupported image type' });
-    if (typeof image.data !== 'string' || image.data.length > MAX_IMAGE_BASE64) return json(413, { error: 'Image too large' });
+  if (images.length > MAX_IMAGES) return json(400, { error: `Up to ${MAX_IMAGES} photos per search` });
+  for (const image of images) {
+    if (!ALLOWED_IMAGE_TYPES.includes(image?.mimeType)) return json(400, { error: 'Unsupported image type' });
+    if (typeof image.data !== 'string' || image.data.length > MAX_IMAGE_BASE64) return json(413, { error: 'Photo too large' });
   }
 
   const serving = dish ? describeServing(quantity, unit, dish) : '';
   const parts = [{ text: kind === 'nutrition' ? nutritionPrompt(serving) : suggestionsPrompt(dish, serving) }];
-  if (image && kind === 'suggestions') parts.push({ inlineData: { data: image.data, mimeType: image.mimeType } });
+  if (kind === 'suggestions') {
+    for (const image of images) parts.push({ inlineData: { data: image.data, mimeType: image.mimeType } });
+  }
 
   // Same text lookup -> same answer for everyone, and no extra Gemini call.
-  const cacheParts = image ? null : ['v2', kind, dish, quantity, unit]; // bump 'v2' when prompts change
+  const cacheParts = images.length ? null : ['v2', kind, dish, quantity, unit]; // bump 'v2' when prompts change
   if (cacheParts) {
     try {
       const cached = await readCache(cacheParts);

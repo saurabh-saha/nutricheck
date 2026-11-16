@@ -268,7 +268,7 @@ export async function addRecipeWithNormalizedNutrition(dish, quantity, unit, nut
 }
 
 export async function handleAddEntry({
-  dish, quantity, unit, dishImage, nutrition, selectedDate, meal, setHistory, setTodayData, onSuccess, onError
+  dish, quantity, unit, photos = [], thumb = null, nutrition, selectedDate, meal, setHistory, setTodayData, onSuccess, onError
 }) {
   if (!dish.trim() || !nutrition) return;
 
@@ -279,7 +279,7 @@ export async function handleAddEntry({
   let imageUrl = null;
   try {
     // Small private thumbnail stored with the entry (no third-party upload).
-    imageUrl = dishImage ? await makeThumbnail(dishImage) : null;
+    imageUrl = photos[0] ? await makeThumbnail(photos[0]) : thumb;
     await logEntry({ dish: fullDish, nutrition, date: selectedDate, meal, imageUrl });
     await refreshTrackerState({ setHistory, setTodayData });
     onSuccess?.();

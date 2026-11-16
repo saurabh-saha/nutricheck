@@ -47,10 +47,12 @@ export const getNutritionFromGemini = async (dish, quantity = 1, unit = 'bowl') 
 };
 
 // Throws an Error with a user-facing message (e.g. daily limit reached).
-export const getDishSuggestionsFromGemini = async (dish, quantity, unit, dishImage) => {
-  const image = dishImage ? await imageToBase64Jpeg(dishImage) : undefined;
+// `photos`: up to 3 File objects of the same meal (or a single File, or null).
+export const getDishSuggestionsFromGemini = async (dish, quantity, unit, photos) => {
+  const files = (Array.isArray(photos) ? photos : photos ? [photos] : []).slice(0, 3);
+  const images = await Promise.all(files.map(imageToBase64Jpeg));
   try {
-    const result = await callGemini({ kind: 'suggestions', dish, quantity, unit, image });
+    const result = await callGemini({ kind: 'suggestions', dish, quantity, unit, images });
     return Array.isArray(result) ? result : [];
   } catch (err) {
     console.error('Gemini error:', err);

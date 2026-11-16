@@ -26,8 +26,28 @@ export function getNutritionHistory() {
     return match?.nutrition || null
   }
   
+  // Who shouldn't get a calorie cut: under-18s (still growing) and very low BMI.
+  export const MIN_ADULT_AGE = 18;
+  export const LOW_BMI = 17;
+
+  export const bmiOf = (height, weight) => {
+    const h = Number(height) / 100;
+    const w = Number(weight);
+    return h > 0 && w > 0 ? w / (h * h) : null;
+  };
+
+  // Returns { teen, lowBmi, blocksLoss } for showing notices and adjusting the goal.
+  export function safetyFlags({ age, height, weight }) {
+    const teen = Number(age) > 0 && Number(age) < MIN_ADULT_AGE;
+    const bmi = bmiOf(height, weight);
+    const lowBmi = bmi !== null && bmi < LOW_BMI;
+    return { teen, lowBmi, bmi, blocksLoss: teen || lowBmi };
+  }
+
   export function calculatePersonalizedIntake(profile) {
-    const { age, sex, height, weight, activityLevel, goal } = profile;
+    const { age, sex, height, weight, activityLevel } = profile;
+    // No weight-loss deficit for teens or very low BMI: aim for maintenance instead.
+    const goal = profile.goal === "lose" && safetyFlags(profile).blocksLoss ? "maintain" : profile.goal;
   
     if (!age || !height || !weight) return null;
   

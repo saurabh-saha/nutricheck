@@ -25,3 +25,5 @@ export const cleanDishLabel = (label) => {
   while (re.test(s)) s = s.replace(re, "$1");
   return s;
 };
+
+export const isMeasure = (unit) => unit === "g" || unit === "ml";
