@@ -12,6 +12,7 @@ import { toast } from "../hooks/use-toast"
 import DishInput from "./DishInput"
 import { handleAddEntry, quickAddEntry, getRecentDishes, getTodayDate } from "../utils/nutritionTracker"
 import { getFavorites, addFavorite, removeFavorite } from "../utils/favorites"
+import { cleanDishLabel } from "../utils/units"
 
 export default function AddFoodDialog({ history = [], setHistory, setTodayData, open, onOpenChange }) {
   const [selectedDate, setSelectedDate] = useState(getTodayDate())
@@ -29,7 +30,7 @@ export default function AddFoodDialog({ history = [], setHistory, setTodayData, 
     setBusy(true)
     try {
       await quickAddEntry({ item, date, meal, setHistory, setTodayData })
-      toast({ title: "✅ Logged", description: item.dish })
+      toast({ title: "✅ Logged", description: cleanDishLabel(item.dish) })
       closeRef.current?.click()
     } catch (err) {
       console.error("Quick add failed:", err)
@@ -42,7 +43,7 @@ export default function AddFoodDialog({ history = [], setHistory, setTodayData, 
   const handleToggleFavorite = async (item, isFavorite) => {
     try {
       if (isFavorite) await removeFavorite(item.dish)
-      else await addFavorite(item)
+      else await addFavorite({ ...item, dish: cleanDishLabel(item.dish) })
       setFavorites(await getFavorites())
     } catch (err) {
       console.error("Favourite update failed:", err)
@@ -61,9 +62,10 @@ export default function AddFoodDialog({ history = [], setHistory, setTodayData, 
         </button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-md w-full sm:mt-10 sm:mx-auto max-h-[90dvh] overflow-y-auto">
+      <DialogContent className="mobile-sheet w-full max-w-md max-h-[92dvh] overflow-y-auto overflow-x-hidden grid-cols-[minmax(0,1fr)] gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] top-auto bottom-0 translate-y-0 rounded-t-3xl border-0 bg-gray-50 dark:bg-gray-900 sm:top-[50%] sm:bottom-auto sm:translate-y-[-50%] sm:rounded-2xl sm:p-6">
         <DialogHeader>
-          <DialogTitle>Add Food Entry - {selectedDate}</DialogTitle>
+          <div className="mx-auto mb-1 h-1.5 w-10 rounded-full bg-gray-300 sm:hidden" aria-hidden />
+          <DialogTitle className="text-left text-lg">Add food</DialogTitle>
         </DialogHeader>
 
         <DishInput
@@ -101,7 +103,7 @@ export default function AddFoodDialog({ history = [], setHistory, setTodayData, 
         <DialogClose asChild>
           <button
             ref={closeRef}
-            className="mt-4 text-sm text-gray-500 underline"
+            className="py-2 text-sm text-gray-500 underline"
           >
             Cancel
           </button>

@@ -5,6 +5,7 @@ import { Pencil, Trash2, Check, X, Search, Star } from "lucide-react";
 import Layout from "../components/Layout";
 import { auth } from "../utils/firebaseConfig";
 import GuestBanner from "../components/GuestBanner";
+import { cleanDishLabel } from "../utils/units";
 import { getFavorites, addFavorite, removeFavorite, favoriteKey } from "../utils/favorites";
 import { getAllEntries, updateEntry, deleteEntry, nutrientMap, MEALS, mealOrder } from "../utils/nutritionTracker";
 
@@ -35,7 +36,7 @@ const inputClass =
 
 function EditRow({ entry, onCancel, onSave, saving }) {
   const [date, setDate] = useState(entry.date || "");
-  const [dish, setDish] = useState(entry.dish || "");
+  const [dish, setDish] = useState(cleanDishLabel(entry.dish || ""));
   const [meal, setMeal] = useState(entry.meal || "");
   const [nutrition, setNutrition] = useState(() =>
     Object.fromEntries(nutrientMap.map(({ key }) => [key, toNumber(entry.nutrition?.[key])]))
@@ -104,23 +105,22 @@ function EditRow({ entry, onCancel, onSave, saving }) {
 function EntryRow({ entry, onEdit, onDelete, onToggleFavorite, isFavorite, busy }) {
   const n = entry.nutrition || {};
   return (
-    <div className="flex items-center gap-3 p-3">
-      {entry.imageUrl ? (
+    <div className="flex items-center gap-2 p-3">
+      {entry.imageUrl?.startsWith("data:") ? (
         <img src={entry.imageUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" loading="lazy" />
       ) : (
         <div className="w-10 h-10 rounded bg-gray-200 dark:bg-gray-700 shrink-0" />
       )}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="font-medium leading-snug line-clamp-2 break-words">{cleanDishLabel(entry.dish)}</div>
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-gray-500 dark:text-gray-400">
           {mealLabel(entry.meal) && (
-            <span className="shrink-0 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
               {mealLabel(entry.meal)}
             </span>
           )}
-          <span className="font-medium truncate">{entry.dish}</span>
-        </div>
-        <div className="text-xs text-gray-500 dark:text-gray-400">
-          {toNumber(n.calories)} kcal · P {toNumber(n.protein)}g · C {toNumber(n.carbs)}g · F {toNumber(n.fat)}g · Fiber {toNumber(n.fiber)}g
+          <span className="font-medium text-gray-700 dark:text-gray-300">{toNumber(n.calories)} kcal</span>
+          <span>· P {toNumber(n.protein)}g · C {toNumber(n.carbs)}g · F {toNumber(n.fat)}g</span>
         </div>
       </div>
       <button onClick={onToggleFavorite} disabled={busy} aria-pressed={isFavorite}

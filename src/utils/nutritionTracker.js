@@ -1,6 +1,7 @@
 import { getFirestore, collection, addDoc, getDocs, doc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import { uploadDishImage } from "../utils/firebaseLogin"
+import { cleanDishLabel } from "./units"
+import { makeThumbnail } from "./thumbnail"
 
 const db = getFirestore();
 const auth = getAuth();
@@ -271,11 +272,14 @@ export async function handleAddEntry({
 }) {
   if (!dish.trim() || !nutrition) return;
 
-  const fullDish = `${quantity} ${unit} of ${dish}`;
+  // Names from the AI are dish names only; strip any amount it added anyway.
+  const name = dish.replace(/^\d+(?:\.\d+)?\s+\S+\s+of\s+/i, "").trim() || dish.trim();
+  const fullDish = cleanDishLabel(`${quantity} ${unit} of ${name}`);
 
   let imageUrl = null;
   try {
-    imageUrl = await uploadDishImage(dishImage, dish);
+    // Small private thumbnail stored with the entry (no third-party upload).
+    imageUrl = dishImage ? await makeThumbnail(dishImage) : null;
     await logEntry({ dish: fullDish, nutrition, date: selectedDate, meal, imageUrl });
     await refreshTrackerState({ setHistory, setTodayData });
     onSuccess?.();
@@ -287,14 +291,14 @@ export async function handleAddEntry({
 
   // Shared recipe catalogue; best effort, never blocks logging.
   if (auth.currentUser) {
-    addRecipeWithNormalizedNutrition(dish, quantity, unit, nutrition, imageUrl)
+    addRecipeWithNormalizedNutrition(name, quantity, unit, nutrition, null)
       .catch(err => console.warn("Couldn't save recipe:", err));
   }
 }
 
 // Re-log a recent/favourite item in one tap.
 export async function quickAddEntry({ item, date, meal, setHistory, setTodayData }) {
-  await logEntry({ dish: item.dish, nutrition: item.nutrition, date, meal, imageUrl: item.imageUrl || null });
+  await logEntry({ dish: cleanDishLabel(item.dish), nutrition: item.nutrition, date, meal, imageUrl: item.imageUrl || null });
   await refreshTrackerState({ setHistory, setTodayData });
 }
 

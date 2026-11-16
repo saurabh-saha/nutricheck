@@ -1,4 +1,5 @@
 import { nutrientMap } from "../utils/nutritionTracker"
+import { cleanDishLabel } from "../utils/units";
 
 export default function NutrientBreakdownList({
   selectedNutrient,
@@ -41,7 +42,7 @@ export default function NutrientBreakdownList({
               <div className="flex flex-col w-full">
                 <div className="flex items-center gap-2 w-full">
                   <span className="text-lg">🍽️</span>
-                  <div className="font-medium break-words w-full">{entry.dish}</div>
+                  <div className="font-medium break-words w-full">{cleanDishLabel(entry.dish)}</div>
                 </div>
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   {value}

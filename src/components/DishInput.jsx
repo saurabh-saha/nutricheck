@@ -1,64 +1,13 @@
-import { useState, useRef, forwardRef, useEffect, useMemo } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { getDishSuggestionsFromGemini } from '../utils/gemini.jsx'
 import { CHART_DAYS, MEALS, defaultMealForNow } from "../utils/nutritionTracker"
+import { unitInfo } from "../utils/units"
 import FadeScale from "./ui/FadeScale";
 import QuickAdd from "./QuickAdd";
+import DishComposer from "./DishComposer";
+import PortionPicker from "./PortionPicker";
 
-function FormInput({ value, onChange, placeholder, type = "text", inputRef }) {
-    return (
-      <input
-        ref={inputRef}
-        type={type}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        className="border rounded px-3 py-2 flex-1 bg-white text-gray-800 dark:text-gray-800 placeholder:text-gray-500 dark:placeholder:text-gray-500"
-      />
-    )
-}
-
-function ServingSizeDropdown({ quantity, setQuantity, unit, setUnit }) {
-    const quantities = [0.25, 0.5, ...Array.from({ length: 200 }, (_, i) => i + 1)]
-    const units = ['bowl', 'g', 'cup', 'ml', 'piece']
-  
-    return (
-      <>
-        <select
-          value={quantity}
-          onChange={(e) => setQuantity(parseFloat(e.target.value))}
-          className="border rounded px-3 py-2 flex-1 bg-white text-gray-800"
-        >
-          <option value="">Qty</option>
-          {quantities.map((q) => (
-            <option key={q} value={q}>{q}</option>
-          ))}
-        </select>
-  
-        <select
-          value={unit}
-          onChange={(e) => setUnit(e.target.value)}
-          className="border rounded px-3 py-2 flex-1 bg-white text-gray-800"
-        >
-          {units.map((u) => (
-            <option key={u} value={u}>{u}</option>
-          ))}
-        </select>
-      </>
-    )
-}
-
-const ImageInput = forwardRef(({ onChange }, ref) => (
-  <input
-    type="file"
-    accept="image/*"
-    onChange={(e) => onChange(e.target.files[0])}
-    ref={ref}
-    className="border rounded px-3 py-2 w-full bg-white text-gray-800 
-               focus:border-blue-500 focus:ring-2 focus:ring-blue-300 focus:outline-none"
-    data-focused={true}
-  />
-));
-
+const MEAL_EMOJI = { breakfast: "🌅", lunch: "☀️", snack: "🍪", dinner: "🌙" };
 
 export default function DishInput({ 
     onSelect,
@@ -83,7 +32,8 @@ export default function DishInput({
     const textInputRef = useRef(null);
 
     useEffect(() => {
-      textInputRef.current?.focus();
+      // Desktop only: on phones the keyboard would cover the quick-add row.
+      if (window.matchMedia?.("(pointer: fine)").matches) textInputRef.current?.focus();
     }, []);
 
     const debounceRef = useRef(null);
@@ -126,7 +76,7 @@ export default function DishInput({
             if (dish.length >= 3) {
                 handleSearch();
             }
-        }, 800);
+        }, 1200);
         return () => clearTimeout(debounceRef.current);
     }, [dish]);
 
@@ -158,55 +108,47 @@ export default function DishInput({
         return { minDate: fmt(minVal), maxDate: fmt(todayVal) };
     }, []);
 
+    const info = unitInfo(unit);
+    const unitWord = info ? (unit === "g" || unit === "ml" ? unit : info.label.toLowerCase()) : unit;
+    const portionLabel = `${quantity} ${unitWord}${quantity > 1 && unit !== "g" && unit !== "ml" ? "s" : ""}`;
+
     return (
         <FadeScale isClosing={closing}>
-            <div className="flex flex-col gap-2 w-full max-w-md">
-                {/* Dish input */}
-                <FormInput
-                inputRef={textInputRef}
-                value={dish}
-                onChange={(e) => setDish(e.target.value)}
-                placeholder="Enter a dish (e.g. 2 eggs, oats)..."
-                />
-
-                <ImageInput onChange={setDishImage} />
-                
-                {dishImage && (
-                  <div className="flex justify-center mt-2 relative">
-                    <img
-                      src={URL.createObjectURL(dishImage)}
-                      alt="Preview"
-                      className="w-32 h-32 sm:w-40 sm:h-40 object-cover rounded-lg shadow-md border border-gray-300"
-                    />
-                    <button
-                      onClick={() => setDishImage(null)}
-                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                )}
-                
-                {/* Meal slot (tracker only) */}
+            <div className="flex w-full min-w-0 flex-col gap-4">
+                {/* Meal + date (tracker only) */}
                 {isTracking && (
-                  <div className="flex gap-1" role="radiogroup" aria-label="Meal">
-                    {MEALS.map(m => (
-                      <button
-                        key={m.key}
-                        type="button"
-                        role="radio"
-                        aria-checked={meal === m.key}
-                        onClick={() => setMeal(m.key)}
-                        className={`flex-1 px-2 py-1.5 rounded text-sm border ${meal === m.key ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
-                      >
-                        {m.label}
-                      </button>
-                    ))}
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="Meal">
+                      {MEALS.map(m => (
+                        <button
+                          key={m.key}
+                          type="button"
+                          role="radio"
+                          aria-checked={meal === m.key}
+                          onClick={() => setMeal(m.key)}
+                          className={`flex flex-col items-center rounded-xl border py-2 text-xs font-medium transition active:scale-95 ${meal === m.key ? "border-blue-600 bg-blue-600 text-white" : "border-gray-200 bg-white text-gray-700"}`}
+                        >
+                          <span className="text-lg leading-none" aria-hidden>{MEAL_EMOJI[m.key]}</span>
+                          <span className="mt-1">{m.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <label className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700">
+                      <span>📅 Date</span>
+                      <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={e => setSelectedDate(e.target.value)}
+                        min={minDate}
+                        max={maxDate}
+                        className="bg-transparent text-right text-sm text-gray-900 focus:outline-none"
+                      />
+                    </label>
                   </div>
                 )}
 
                 {/* One-tap re-log of favourites / recent foods */}
-                {isTracking && quickAdd && !dish.trim() && !dishImage && (
+                {isTracking && quickAdd && !dish.trim() && !dishImage && !result && (
                   <QuickAdd
                     favorites={quickAdd.favorites}
                     recent={quickAdd.recent}
@@ -216,69 +158,60 @@ export default function DishInput({
                   />
                 )}
 
-                {/* Quantity + Unit + Date */}
-                <div className="flex gap-2">
-                {isTracking && (
-                <input 
-                    type="date"
-                    value={selectedDate}
-                    onChange={e => setSelectedDate(e.target.value)}
-                    min={minDate}
-                    max={maxDate}
-                    className="border rounded px-3 py-2 flex-1 bg-white text-gray-800"
+                <DishComposer
+                    inputRef={textInputRef}
+                    value={dish}
+                    onChange={setDish}
+                    image={dishImage}
+                    onImage={setDishImage}
+                    onSubmit={() => handleSearch()}
                 />
-                )}
-                <ServingSizeDropdown
-                    quantity={quantity}
-                    setQuantity={setQuantity}
-                    unit={unit}
-                    setUnit={setUnit}
-                />
-                </div>
-        
-                {/* Button */}
+
+                <PortionPicker quantity={quantity} setQuantity={setQuantity} unit={unit} setUnit={setUnit} />
+
                 <button
                     onClick={() => handleSearch()}
-                    className="bg-blue-600 text-white px-4 py-2 rounded w-full"
-                    disabled={isLoading}
+                    disabled={isLoading || (!dish.trim() && !dishImage)}
+                    className="w-full rounded-2xl bg-blue-600 px-4 py-3.5 text-base font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50"
                 >
-                {isLoading ? 'Searching...' : 'Explore Variations'}
+                    {isLoading ? "Finding nutrition…" : `Find nutrition for ${portionLabel}`}
                 </button>
 
                 {searchError && (
                     <p role="alert" className="text-sm text-red-600 dark:text-red-400">{searchError}</p>
                 )}
 
-                {/* Results List */}
+                {/* Results */}
                 {Array.isArray(result) && result.length > 0 && (
-                    <div className="mt-4 grid gap-3">
-                        {result.map((item, idx) => (
-                            <div
-                                key={idx}
-                                className="flex items-center gap-3 p-3 border rounded bg-white shadow-sm hover:shadow-md transition cursor-pointer"
-                                onClick={() => handleConfirmSelection(item)}
-                            >
-                                <img
-                                    src={`/${item.image}`}
-                                    alt={item.name}
-                                    className="w-16 h-16 object-cover rounded"
-                                />
-                                <div className="flex-1">
-                                    <h4 className="font-semibold text-gray-800">{item.name}</h4>
-                                    <p className="text-sm text-gray-500">
-                                        {item.nutrition.calories} kcal
-                                    </p>
-                                </div>
-                                <span className="text-green-600 font-bold">Select</span>
-                            </div>
-                        ))}
+                    <div className="space-y-2">
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Pick the closest match</p>
+                        {result.map((item, idx) => {
+                            const n = item.nutrition || {};
+                            return (
+                                <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={() => handleConfirmSelection(item)}
+                                    className="flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3 text-left shadow-sm transition active:scale-[0.98]"
+                                >
+                                    <img src={`/${item.image}`} alt="" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block truncate font-semibold text-gray-900">{item.name}</span>
+                                        <span className="block text-xs text-gray-500">{portionLabel} · P {n.protein ?? 0}g · C {n.carbs ?? 0}g · F {n.fat ?? 0}g</span>
+                                    </span>
+                                    <span className="shrink-0 text-right">
+                                        <span className="block text-lg font-bold text-gray-900">{n.calories ?? 0}</span>
+                                        <span className="block text-[10px] text-gray-500">kcal</span>
+                                    </span>
+                                </button>
+                            );
+                        })}
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                             AI estimates, not medical advice. Values can vary by recipe and portion.
                         </p>
-                </div>
-            )}
+                    </div>
+                )}
             </div>
         </FadeScale>
     )
 }
-      

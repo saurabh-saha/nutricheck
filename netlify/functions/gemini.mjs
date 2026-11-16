@@ -2,6 +2,7 @@
 // and never reaches the browser. Prompts are built here, so this endpoint
 // can't be used as a general-purpose Gemini proxy.
 import { extractJsonFromText } from '../../src/utils/extractJson.js';
+import { describeServing } from '../../src/utils/units.js';
 import { checkOrigin, verifyFirebaseUser, consumeQuota, readCache, writeCache } from '../lib/guard.mjs';
 
 const MODELS = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest'];
@@ -19,14 +20,16 @@ const json = (status, body) =>
 
 const clean = (v, max = 100) => String(v ?? '').replace(/["`\\]/g, '').slice(0, max).trim();
 
-const suggestionsPrompt = (serving) => `
-Create exactly 3 dish suggestions based on "${serving || 'the dish in the image'}".
+// `dish` is just the food name ("idli"); `serving` adds the amount for the nutrition.
+const suggestionsPrompt = (dish, serving) => `
+Create exactly 3 dish suggestions for ${serving ? `this serving: "${serving}"` : 'the dish in the image'}.
 Rules:
-1. If a dish name or any food like fruit, egg etc is provided, the FIRST suggestion MUST be EXACTLY the same string as the input.
-   Do NOT modify, expand, or reinterpret it.
-   Example: input "pomegranate" -> first name "pomegranate" (NOT "pomegranate seeds", NOT "pomegranate juice")
-2. If only an image is provided, infer the most likely dish and use it as the first suggestion.
-3. The second and third suggestions should be close variants (different styles, toppings, ingredients).
+1. ${dish
+    ? `The FIRST suggestion's name MUST be exactly "${dish}". Do not modify, expand, or reinterpret it.`
+    : 'Infer the most likely dish from the image and use it as the first suggestion.'}
+2. The second and third suggestions should be close variants (different styles, toppings, ingredients).
+3. Names are dish names only. Never put the quantity or unit in the name (write "Masala dosa", not "1 piece of Masala dosa").
+4. Nutrition is for the FULL serving described above (or what is visible in the image), not per 100 g.
 
 For each suggestion, include:
 - name (string)
@@ -90,12 +93,12 @@ export default async (req, context) => {
     if (typeof image.data !== 'string' || image.data.length > MAX_IMAGE_BASE64) return json(413, { error: 'Image too large' });
   }
 
-  const serving = dish ? `${quantity} ${unit} of ${dish}` : '';
-  const parts = [{ text: kind === 'nutrition' ? nutritionPrompt(serving) : suggestionsPrompt(serving) }];
+  const serving = dish ? describeServing(quantity, unit, dish) : '';
+  const parts = [{ text: kind === 'nutrition' ? nutritionPrompt(serving) : suggestionsPrompt(dish, serving) }];
   if (image && kind === 'suggestions') parts.push({ inlineData: { data: image.data, mimeType: image.mimeType } });
 
   // Same text lookup -> same answer for everyone, and no extra Gemini call.
-  const cacheParts = image ? null : [kind, dish, quantity, unit];
+  const cacheParts = image ? null : ['v2', kind, dish, quantity, unit]; // bump 'v2' when prompts change
   if (cacheParts) {
     try {
       const cached = await readCache(cacheParts);

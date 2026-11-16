@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getNutritionHistory, saveToHistory } from '../utils/nutritionHistory'
 import Layout from '../components/Layout'
+import { cleanDishLabel } from '../utils/units'
 import DishInput from '../components/DishInput'
 import NutritionResult from '../components/NutritionResult'
 import PreviousSearches from '../components/PreviousSearches'
@@ -31,7 +32,7 @@ export default function CalorieFinder() {
   }, [])
 
   const handleDishSelect = (dish, quantity, unit, nutrition) => {
-    const fullDish = `${quantity} ${unit} of ${dish}`.trim();
+    const fullDish = cleanDishLabel(`${quantity} ${unit} of ${dish}`.trim());
     setResult(nutrition);
     const updated = saveToHistory(fullDish, nutrition);
     setPreviousSearches(updated);

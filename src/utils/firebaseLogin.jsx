@@ -5,7 +5,6 @@ import {
 } from "firebase/auth";
 import { auth, db } from "./firebaseConfig";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const provider = new GoogleAuthProvider();
 // Always force account chooser to appear
@@ -116,36 +115,4 @@ export async function loadProfileFromFirestore() {
   return snap.exists() ? snap.data() : null;
 }
 
-export async function uploadDishImage(dishImage, dishName) {
-  if (!dishImage || !dishName) return null;
-
-  const formData = new FormData();
-  formData.append("token", "2ac86a3b88999a94b07f44c2414dab6d");
-  formData.append("upload_session", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-  formData.append("numfiles", "1");
-  formData.append("upload_referer", "https://getsharex.com/");
-  formData.append("file", dishImage, `${dishName}-${Date.now()}.jpg`);
-
-  try {
-    const response = await fetch("https://postimg.cc/json", {
-      method: "POST",
-      body: formData
-    });
-
-    const data = await response.json();
-
-    // Postimages response may contain URL in different formats
-    if (data && data.url) {
-      return data.url; // public image page URL
-    } else if (data && data.status === "OK" && data.url) {
-      return data.url; // fallback
-    } else {
-      console.error("Upload failed", data);
-      return null;
-    }
-  } catch (err) {
-    console.error("Error uploading to Postimages", err);
-    return null;
-  }
-}
 

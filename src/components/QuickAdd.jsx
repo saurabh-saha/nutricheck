@@ -1,63 +1,72 @@
 import { Star, Plus } from "lucide-react";
 import { favoriteKey } from "../utils/favorites";
+import { cleanDishLabel } from "../utils/units";
 
-function Chip({ item, isFavorite, onAdd, onToggleFavorite, disabled }) {
+function Card({ item, isFavorite, onAdd, onToggleFavorite, disabled }) {
   const kcal = Math.round(Number(item.nutrition?.calories) || 0);
+  const label = cleanDishLabel(item.dish);
   return (
-    <div className="flex items-stretch rounded-full border border-gray-300 bg-white text-gray-800 overflow-hidden">
+    <div className="relative w-36 shrink-0 snap-start">
       <button
         type="button"
         onClick={() => onAdd(item)}
         disabled={disabled}
-        className="flex items-center gap-1 pl-3 pr-2 py-1.5 text-sm hover:bg-blue-50 disabled:opacity-50 max-w-[14rem]"
-        title={`Log ${item.dish}`}
+        aria-label={`Add ${label} again, ${kcal} kcal`}
+        className="flex h-full w-full flex-col rounded-2xl border border-gray-200 bg-white p-2.5 text-left shadow-sm transition active:scale-95 disabled:opacity-50"
       >
-        <Plus size={14} className="shrink-0 text-blue-600" />
-        <span className="truncate">{item.dish}</span>
-        <span className="shrink-0 text-xs text-gray-500">{kcal} kcal</span>
+        {item.imageUrl?.startsWith("data:") ? (
+          <img src={item.imageUrl} alt="" className="mb-2 h-14 w-full rounded-xl object-cover" />
+        ) : (
+          <div className="mb-2 grid h-14 w-full place-items-center rounded-xl bg-gradient-to-br from-emerald-50 to-sky-100 text-2xl" aria-hidden>🍽️</div>
+        )}
+        <span className="line-clamp-2 text-sm font-medium leading-tight text-gray-900">{label}</span>
+        <span className="mt-auto flex items-center justify-between pt-2">
+          <span className="text-xs text-gray-500">{kcal} kcal</span>
+          <span className="flex items-center gap-0.5 rounded-full bg-blue-600 px-2 py-0.5 text-xs font-medium text-white">
+            <Plus size={12} /> Add
+          </span>
+        </span>
       </button>
       <button
         type="button"
         onClick={() => onToggleFavorite(item, isFavorite)}
         disabled={disabled}
-        aria-label={isFavorite ? `Remove ${item.dish} from favourites` : `Add ${item.dish} to favourites`}
+        aria-label={isFavorite ? `Remove ${label} from favourites` : `Add ${label} to favourites`}
         aria-pressed={isFavorite}
-        className="px-2 border-l border-gray-200 hover:bg-yellow-50 disabled:opacity-50"
+        className="absolute right-1.5 top-1.5 grid h-8 w-8 place-items-center rounded-full bg-white/90 shadow-sm"
       >
-        <Star size={14} className={isFavorite ? "fill-yellow-400 text-yellow-500" : "text-gray-400"} />
+        <Star size={16} className={isFavorite ? "fill-yellow-400 text-yellow-500" : "text-gray-400"} />
       </button>
     </div>
   );
 }
 
+// "Log again": favourites first, then recent foods, in one swipeable row.
+// Tapping a card adds the same food, portion and nutrition as last time
+// to the meal and date chosen above. No search needed.
 export default function QuickAdd({ favorites = [], recent = [], onAdd, onToggleFavorite, busy }) {
-  const favKeys = new Set(favorites.map((f) => favoriteKey(f.dish)));
-  const recentOnly = recent.filter((r) => !favKeys.has(favoriteKey(r.dish)));
-  if (!favorites.length && !recentOnly.length) return null;
+  const favKeys = new Set(favorites.map((f) => favoriteKey(cleanDishLabel(f.dish))));
+  const seen = new Set();
+  const items = [
+    ...favorites.map((f) => ({ item: f, fav: true })),
+    ...recent.map((r) => ({ item: r, fav: false })),
+  ].filter(({ item, fav }) => {
+    const key = favoriteKey(cleanDishLabel(item.dish));
+    if (seen.has(key) || (!fav && favKeys.has(key))) return false;
+    seen.add(key);
+    return true;
+  });
+  if (!items.length) return null;
 
   return (
-    <div className="space-y-2">
-      {favorites.length > 0 && (
-        <div>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Favourites</p>
-          <div className="flex flex-wrap gap-2">
-            {favorites.map((item) => (
-              <Chip key={favoriteKey(item.dish)} item={item} isFavorite onAdd={onAdd} onToggleFavorite={onToggleFavorite} disabled={busy} />
-            ))}
-          </div>
-        </div>
-      )}
-      {recentOnly.length > 0 && (
-        <div>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Recent</p>
-          <div className="flex flex-wrap gap-2">
-            {recentOnly.map((item) => (
-              <Chip key={favoriteKey(item.dish)} item={item} isFavorite={false} onAdd={onAdd} onToggleFavorite={onToggleFavorite} disabled={busy} />
-            ))}
-          </div>
-        </div>
-      )}
-      <p className="text-xs text-gray-500 dark:text-gray-400">Tap to log again, or search for something new below.</p>
-    </div>
+    <section aria-label="Log again" className="space-y-2">
+      <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">Log again</h3>
+      <div className="no-scrollbar -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1">
+        {items.map(({ item, fav }) => (
+          <Card key={favoriteKey(cleanDishLabel(item.dish))} item={item} isFavorite={fav}
+            onAdd={onAdd} onToggleFavorite={onToggleFavorite} disabled={busy} />
+        ))}
+      </div>
+    </section>
   );
 }
