@@ -81,25 +81,42 @@ export default function DishInput({
       textInputRef.current?.focus();
     }, []);
 
+    const debounceRef = useRef(null);
+    const lastSearchKeyRef = useRef(null);
+    const latestRequestRef = useRef(0);
+
     const handleSearch = async (searchTerm = dish) => {
+        // A manual search replaces any pending auto-search.
+        clearTimeout(debounceRef.current);
         if (!searchTerm.trim() && !dishImage) return;
+
+        // Skip if this exact search is already in flight or on screen.
+        const imageKey = dishImage ? `${dishImage.name}:${dishImage.size}:${dishImage.lastModified}` : '';
+        const searchKey = `${searchTerm.trim().toLowerCase()}|${quantity}|${unit}|${imageKey}`;
+        if (searchKey === lastSearchKeyRef.current) return;
+        lastSearchKeyRef.current = searchKey;
+
+        const requestId = ++latestRequestRef.current;
         setIsLoading(true);
         const suggestions = await getDishSuggestionsFromGemini(searchTerm, quantity, unit, dishImage);
+        if (requestId !== latestRequestRef.current) return; // a newer search superseded this one
         setIsLoading(false);
-    
+
         if (suggestions && Array.isArray(suggestions) && suggestions.length > 0) {
             setResult(suggestions);
+        } else {
+            lastSearchKeyRef.current = null; // allow retrying the same search after a failure
         }
     };
 
-    // Auto-search on writing
+    // Auto-search while typing (debounced)
     useEffect(() => {
-        const timeout = setTimeout(() => {
+        debounceRef.current = setTimeout(() => {
             if (dish.length >= 3) {
                 handleSearch();
             }
         }, 800);
-        return () => clearTimeout(timeout);
+        return () => clearTimeout(debounceRef.current);
     }, [dish]);
 
     const handleConfirmSelection = (item) => {
