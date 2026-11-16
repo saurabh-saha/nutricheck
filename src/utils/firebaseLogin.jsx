@@ -60,6 +60,19 @@ export async function getReminderSettings() {
   return { email: snap.exists() ? snap.data().reminders?.email !== false : true };
 }
 
+// Emails a test reminder to the logged-in user's own address.
+export async function sendTestReminder() {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error("Please log in first.");
+  const res = await fetch("/.netlify/functions/test-reminder", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
+}
+
 export async function setEmailReminders(enabled) {
   if (!auth.currentUser) return;
   await setDoc(doc(db, "users", auth.currentUser.uid), { reminders: { email: enabled } }, { merge: true });

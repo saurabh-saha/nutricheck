@@ -28,9 +28,9 @@ const isAllowedOrigin = (origin) =>
 
 export const checkOrigin = (req) => isAllowedOrigin(req.headers.get('origin'));
 
-// Returns the Firebase uid for a valid ID token, null if no token was sent.
+// Returns the verified Firebase ID token claims, or null if no token was sent.
 // Throws if a token was sent but is invalid/expired.
-export const verifyFirebaseUser = async (req) => {
+export const verifyFirebaseToken = async (req) => {
   const header = req.headers.get('authorization') || '';
   const match = header.match(/^Bearer (.+)$/);
   if (!match) return null;
@@ -39,8 +39,11 @@ export const verifyFirebaseUser = async (req) => {
     audience: FIREBASE_PROJECT_ID,
   });
   if (!payload.sub) throw new Error('Token has no subject');
-  return payload.sub;
+  return payload;
 };
+
+// Firebase uid for a valid token, null if none was sent.
+export const verifyFirebaseUser = async (req) => (await verifyFirebaseToken(req))?.sub ?? null;
 
 // ---- storage (Netlify Blobs, with an in-memory fallback for local tests) ----
 const memory = new Map();
@@ -74,6 +77,9 @@ const bump = async (key, limit) => {
   await usage.setJSON(key, count + 1);
   return true;
 };
+
+// Generic daily counter, e.g. for test emails. True if under the limit.
+export const consumeDaily = (name, limit) => bump(`${today()}/${name}`, limit);
 
 // Counts one Gemini call. Returns null if allowed, or a reason string.
 export const consumeQuota = async ({ uid, ip }) => {

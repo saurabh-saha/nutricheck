@@ -4,13 +4,24 @@ import { useDarkModeContext } from "../context/DarkModeContext";
 import { Switch } from "../components/ui/switch";
 import Layout from '../components/Layout'
 import { auth } from "../utils/firebaseConfig";
-import { getReminderSettings, setEmailReminders, loginWithGoogle } from "../utils/firebaseLogin";
+import { getReminderSettings, setEmailReminders, sendTestReminder, loginWithGoogle } from "../utils/firebaseLogin";
 
 export default function Settings() {
   const { isDark, toggle } = useDarkModeContext();
   const [user] = useAuthState(auth);
   const [emailReminders, setEmailRemindersState] = useState(null);
   const [error, setError] = useState("");
+  const [testState, setTestState] = useState({ sending: false, message: "", dryRun: null });
+
+  const handleTest = async () => {
+    setTestState({ sending: true, message: "", dryRun: null });
+    try {
+      const { sentTo, dryRun } = await sendTestReminder();
+      setTestState({ sending: false, message: `Test email sent to ${sentTo}. Check your inbox (and spam).`, dryRun });
+    } catch (err) {
+      setTestState({ sending: false, message: err.message, dryRun: null, failed: true });
+    }
+  };
 
   useEffect(() => {
     if (!user) { setEmailRemindersState(null); return; }
@@ -66,6 +77,35 @@ export default function Settings() {
                         </button>
                     )}
                 </div>
+                {user && (
+                    <div className="p-4 space-y-2">
+                        <button
+                            onClick={handleTest}
+                            disabled={testState.sending}
+                            className="text-sm px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+                        >
+                            {testState.sending ? "Sending…" : "Send me a test reminder"}
+                        </button>
+                        {testState.message && (
+                            <p className={`text-sm ${testState.failed ? "text-red-600 dark:text-red-400" : "text-green-700 dark:text-green-400"}`}>
+                                {testState.message}
+                            </p>
+                        )}
+                        {testState.dryRun && (
+                            <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                                <p className="font-medium">Admin dry run (nothing sent):</p>
+                                {["morning", "evening"].map((b) => {
+                                    const r = testState.dryRun[b];
+                                    return (
+                                        <p key={b}>
+                                            {b === "morning" ? "10:00" : "20:00"} ({r.day}): {r.eligible} of {r.users} users would get an email
+                                        </p>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
             {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
         </div>
