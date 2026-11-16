@@ -10,7 +10,10 @@ const generateWithFallback = async (input) => {
   let lastErr;
   for (const name of GEMINI_MODELS) {
     try {
-      const model = genAI.getGenerativeModel({ model: name }, { timeout: GEMINI_TIMEOUT_MS });
+      const model = genAI.getGenerativeModel(
+        { model: name, generationConfig: { responseMimeType: 'application/json' } },
+        { timeout: GEMINI_TIMEOUT_MS }
+      );
       return await model.generateContent(input);
     } catch (err) {
       console.warn(`Gemini ${name} failed:`, err?.message || err);
@@ -122,17 +125,21 @@ export const getDishSuggestionsFromGemini = async (dish, quantity, unit,  dishIm
 
 export const extractJsonFromText = (text) => {
   try {
-    // 1. Try extracting from ```json ... ``` block
-    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    const raw = text.trim();
     let jsonString = null;
 
-    if (codeBlockMatch) {
-      jsonString = codeBlockMatch[1].trim();
+    // 1. Whole response is JSON (JSON mode)
+    if (raw.startsWith('{') || raw.startsWith('[')) {
+      jsonString = raw;
     } else {
-      // 2. Fallback: Try extracting first {...} block
-      const jsonMatch = text.match(/\{[\s\S]*?\}/);
-      if (jsonMatch) {
-        jsonString = jsonMatch[0];
+      // 2. ```json ... ``` block
+      const codeBlockMatch = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+      if (codeBlockMatch) {
+        jsonString = codeBlockMatch[1].trim();
+      } else {
+        // 3. Outermost [...] or {...} (greedy, so nested objects/arrays stay intact)
+        const jsonMatch = raw.match(/[[{][\s\S]*[\]}]/);
+        if (jsonMatch) jsonString = jsonMatch[0];
       }
     }
 
