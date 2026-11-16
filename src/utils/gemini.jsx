@@ -2,6 +2,24 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { nutrientMap } from '../utils/nutritionTracker';
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY)
 
+// Try models in order; each attempt is capped so the UI never hangs.
+const GEMINI_MODELS = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest'];
+const GEMINI_TIMEOUT_MS = 20000;
+
+const generateWithFallback = async (input) => {
+  let lastErr;
+  for (const name of GEMINI_MODELS) {
+    try {
+      const model = genAI.getGenerativeModel({ model: name }, { timeout: GEMINI_TIMEOUT_MS });
+      return await model.generateContent(input);
+    } catch (err) {
+      console.warn(`Gemini ${name} failed:`, err?.message || err);
+      lastErr = err;
+    }
+  }
+  throw lastErr;
+};
+
 const jsonTemplate = nutrientMap.reduce((acc, { key }) => {
   acc[key] = 0;
   return acc;
@@ -17,7 +35,6 @@ const fileToBase64 = (file) => {
 };
 
 export const getNutritionFromGemini = async (dish, quantity = 1, unit = 'bowl') => {
-  const model = genAI.getGenerativeModel({ model: 'gemini-3.8-flash' });
 
   const fullQuery = `${quantity} ${unit} of ${dish}`;
 
@@ -32,7 +49,7 @@ export const getNutritionFromGemini = async (dish, quantity = 1, unit = 'bowl') 
   `;
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await generateWithFallback(prompt);
     const text = result.response.text();
     return extractJsonFromText(text);
   } catch (err) {
@@ -42,7 +59,6 @@ export const getNutritionFromGemini = async (dish, quantity = 1, unit = 'bowl') 
 };
 
 export const getDishSuggestionsFromGemini = async (dish, quantity, unit,  dishImage) => {
-  const model = genAI.getGenerativeModel({ model: 'gemini-3.8-flash' });
   dish = `${quantity} ${unit} of ${dish}`;
   const promptParts = [{
     text: 
@@ -92,7 +108,7 @@ export const getDishSuggestionsFromGemini = async (dish, quantity, unit,  dishIm
   }
 
   try {
-    const result = await model.generateContent(promptParts);
+    const result = await generateWithFallback(promptParts);
     const text = result.response.text();
     return extractJsonFromText(text);
   } catch (err) {
