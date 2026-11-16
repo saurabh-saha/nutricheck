@@ -7,6 +7,7 @@ import Settings from "./pages/Settings"
 import CalorieFinder from "./pages/CalorieFinder";
 import History from "./pages/History";
 import WelcomeModal from "./components/WelcomeModal";
+import { Toaster } from "./components/ui/toaster";
 import { useState, useEffect } from "react";
 import { registerWelcomeHandler } from "./utils/firebaseLogin";
 
@@ -28,6 +29,8 @@ export default function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
+
+        <Toaster />
 
         {/* Celebration Popup */}
         <WelcomeModal

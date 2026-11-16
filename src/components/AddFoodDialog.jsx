@@ -35,7 +35,7 @@ export default function AddFoodDialog({ setHistory, setTodayData }) {
         <DishInput
             selectedDate={selectedDate}
             setSelectedDate={setSelectedDate}
-            onSelect={(dish, quantity, unit, nutrition, dishImage, date) => {
+            onSelect={(dish, quantity, unit, nutrition, dishImage, date, meal) => {
                 handleAddEntry({
                 dish,
                 quantity,
@@ -43,6 +43,7 @@ export default function AddFoodDialog({ setHistory, setTodayData }) {
                 dishImage,
                 nutrition,
                 selectedDate: date,
+                meal,
                 setHistory,
                 setTodayData,
                 onSuccess: () => {

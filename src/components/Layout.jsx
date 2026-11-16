@@ -30,6 +30,10 @@ export default function Layout({ children }) {
         {/* Footer */}
         <footer className="pt-4 pb-4 border-t border-gray-200 dark:border-gray-700 text-sm text-center text-gray-600 dark:text-gray-400">
           <p>© {new Date().getFullYear()} NutriCheck. Built with 💙</p>
+          <p className="mt-1 px-4 text-xs">
+            Nutrition values are AI-generated estimates for general information only and are not medical advice.
+            Talk to a doctor or registered dietitian before making health decisions.
+          </p>
         </footer>
 
       </div>

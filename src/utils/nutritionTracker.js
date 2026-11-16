@@ -18,6 +18,27 @@ export function getDefaultIntake() {
 const KEY = 'nutrition-tracker-v2'
 export const CHART_DAYS = 7;
 
+export const MEALS = [
+  { key: "breakfast", label: "Breakfast" },
+  { key: "lunch", label: "Lunch" },
+  { key: "snack", label: "Snack" },
+  { key: "dinner", label: "Dinner" },
+];
+
+// Sensible default meal slot for the current time of day.
+export function defaultMealForNow(date = new Date()) {
+  const h = date.getHours();
+  if (h >= 4 && h < 11) return "breakfast";
+  if (h >= 11 && h < 15) return "lunch";
+  if (h >= 15 && h < 18) return "snack";
+  return "dinner";
+}
+
+export const mealOrder = (meal) => {
+  const i = MEALS.findIndex(m => m.key === meal);
+  return i === -1 ? MEALS.length : i;
+};
+
 export function getTodayDate() {
   return formatDate(new Date());
 }
@@ -94,8 +115,8 @@ export async function getAllEntries() {
   return all.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 }
 
-export async function updateEntry(id, { date, dish, nutrition }) {
-  await updateDoc(entryRef(id), { date, dish, nutrition });
+export async function updateEntry(id, { date, dish, nutrition, meal }) {
+  await updateDoc(entryRef(id), { date, dish, nutrition, ...(meal ? { meal } : {}) });
   await refreshLocalCache();
 }
 
@@ -207,7 +228,7 @@ export async function addRecipeWithNormalizedNutrition(dish, quantity, unit, nut
 }
 
 export async function handleAddEntry({
-  dish, quantity, unit, dishImage, nutrition, selectedDate, setHistory, setTodayData, onSuccess, onError
+  dish, quantity, unit, dishImage, nutrition, selectedDate, meal, setHistory, setTodayData, onSuccess, onError
 }) {
   if (!dish.trim() || !nutrition) return;
 
@@ -219,6 +240,7 @@ export async function handleAddEntry({
     const newEntry = {
       date: entryDate,
       dish: fullDish,
+      meal: meal || defaultMealForNow(),
       nutrition,
       imageUrl
     };

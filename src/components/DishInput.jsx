@@ -1,6 +1,6 @@
 import { useState, useRef, forwardRef, useEffect, useMemo } from "react"
 import { getDishSuggestionsFromGemini } from '../utils/gemini.jsx'
-import { CHART_DAYS } from "../utils/nutritionTracker"
+import { CHART_DAYS, MEALS, defaultMealForNow } from "../utils/nutritionTracker"
 import FadeScale from "./ui/FadeScale";
 
 function FormInput({ value, onChange, placeholder, type = "text", inputRef }) {
@@ -76,6 +76,8 @@ export default function DishInput({
     const [closing, setClosing] = useState(false);
     const [dishImage, setDishImage] = useState(null);
     const [searchError, setSearchError] = useState("");
+    const [meal, setMeal] = useState(defaultMealForNow);
+    const isTracking = Boolean(setSelectedDate); // logging to the tracker (vs. quick lookup)
     const textInputRef = useRef(null);
 
     useEffect(() => {
@@ -130,7 +132,7 @@ export default function DishInput({
         if (item) {
           setClosing(true); // start fade animation
           setTimeout(() => {
-            onSelect?.(item.name, quantity, unit, item.nutrition, dishImage, selectedDate);
+            onSelect?.(item.name, quantity, unit, item.nutrition, dishImage, selectedDate, meal);
             setDish("");
             setQuantity(1);
             setUnit("bowl");
@@ -183,8 +185,27 @@ export default function DishInput({
                   </div>
                 )}
                 
+                {/* Meal slot (tracker only) */}
+                {isTracking && (
+                  <div className="flex gap-1" role="radiogroup" aria-label="Meal">
+                    {MEALS.map(m => (
+                      <button
+                        key={m.key}
+                        type="button"
+                        role="radio"
+                        aria-checked={meal === m.key}
+                        onClick={() => setMeal(m.key)}
+                        className={`flex-1 px-2 py-1.5 rounded text-sm border ${meal === m.key ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 {/* Quantity + Unit + Date */}
                 <div className="flex gap-2">
+                {isTracking && (
                 <input 
                     type="date"
                     value={selectedDate}
@@ -193,6 +214,7 @@ export default function DishInput({
                     max={maxDate}
                     className="border rounded px-3 py-2 flex-1 bg-white text-gray-800"
                 />
+                )}
                 <ServingSizeDropdown
                     quantity={quantity}
                     setQuantity={setQuantity}
@@ -237,6 +259,9 @@ export default function DishInput({
                                 <span className="text-green-600 font-bold">Select</span>
                             </div>
                         ))}
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                            AI estimates, not medical advice. Values can vary by recipe and portion.
+                        </p>
                 </div>
             )}
             </div>

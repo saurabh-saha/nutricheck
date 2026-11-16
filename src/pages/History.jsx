@@ -5,9 +5,15 @@ import { Pencil, Trash2, Check, X, Search } from "lucide-react";
 import Layout from "../components/Layout";
 import { auth } from "../utils/firebaseConfig";
 import { loginWithGoogle } from "../utils/firebaseLogin";
-import { getAllEntries, updateEntry, deleteEntry, nutrientMap } from "../utils/nutritionTracker";
+import { getAllEntries, updateEntry, deleteEntry, nutrientMap, MEALS, mealOrder } from "../utils/nutritionTracker";
 
 const PAGE_SIZE = 50;
+
+const mealLabel = (meal) => MEALS.find((m) => m.key === meal)?.label;
+
+// Newest day first; within a day, breakfast -> lunch -> snack -> dinner.
+const byDateThenMeal = (a, b) =>
+  (b.date || "").localeCompare(a.date || "") || mealOrder(a.meal) - mealOrder(b.meal);
 
 const toNumber = (value) => {
   if (typeof value === "number") return value;
@@ -29,6 +35,7 @@ const inputClass =
 function EditRow({ entry, onCancel, onSave, saving }) {
   const [date, setDate] = useState(entry.date || "");
   const [dish, setDish] = useState(entry.dish || "");
+  const [meal, setMeal] = useState(entry.meal || "");
   const [nutrition, setNutrition] = useState(() =>
     Object.fromEntries(nutrientMap.map(({ key }) => [key, toNumber(entry.nutrition?.[key])]))
   );
@@ -39,6 +46,7 @@ function EditRow({ entry, onCancel, onSave, saving }) {
     onSave({
       date,
       dish: dish.trim(),
+      meal: meal || undefined,
       nutrition: { ...entry.nutrition, ...Object.fromEntries(Object.entries(nutrition).map(([k, v]) => [k, toNumber(v)])) },
     });
   };
@@ -49,6 +57,13 @@ function EditRow({ entry, onCancel, onSave, saving }) {
         <label className="flex-1 text-xs text-gray-500 dark:text-gray-400">
           Dish
           <input className={inputClass} value={dish} onChange={(e) => setDish(e.target.value)} required />
+        </label>
+        <label className="text-xs text-gray-500 dark:text-gray-400 sm:w-32">
+          Meal
+          <select className={inputClass} value={meal} onChange={(e) => setMeal(e.target.value)}>
+            <option value="">—</option>
+            {MEALS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+          </select>
         </label>
         <label className="text-xs text-gray-500 dark:text-gray-400 sm:w-40">
           Date
@@ -95,7 +110,14 @@ function EntryRow({ entry, onEdit, onDelete, busy }) {
         <div className="w-10 h-10 rounded bg-gray-200 dark:bg-gray-700 shrink-0" />
       )}
       <div className="flex-1 min-w-0">
-        <div className="font-medium truncate">{entry.dish}</div>
+        <div className="flex items-center gap-2 min-w-0">
+          {mealLabel(entry.meal) && (
+            <span className="shrink-0 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+              {mealLabel(entry.meal)}
+            </span>
+          )}
+          <span className="font-medium truncate">{entry.dish}</span>
+        </div>
         <div className="text-xs text-gray-500 dark:text-gray-400">
           {toNumber(n.calories)} kcal · P {toNumber(n.protein)}g · C {toNumber(n.carbs)}g · F {toNumber(n.fat)}g · Fiber {toNumber(n.fiber)}g
         </div>
@@ -131,7 +153,7 @@ export default function History() {
       }
       setLoading(true);
       try {
-        setEntries(await getAllEntries());
+        setEntries((await getAllEntries()).sort(byDateThenMeal));
         setError("");
       } catch (err) {
         console.error("Failed to load history:", err);
@@ -163,7 +185,7 @@ export default function History() {
     try {
       await updateEntry(id, changes);
       setEntries((list) =>
-        list.map((e) => (e.id === id ? { ...e, ...changes } : e)).sort((a, b) => (b.date || "").localeCompare(a.date || ""))
+        list.map((e) => (e.id === id ? { ...e, ...changes } : e)).sort(byDateThenMeal)
       );
       setEditingId(null);
       setError("");

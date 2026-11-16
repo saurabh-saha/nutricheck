@@ -11,6 +11,9 @@ export default function NutritionResult({ result }) {
           </li>
         ))}
       </ul>
+      <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+        AI estimate, not medical advice. Values can vary by recipe and portion.
+      </p>
     </div>
   )
 }
