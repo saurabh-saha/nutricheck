@@ -47,14 +47,16 @@ const unitWord = (quantity, unit) => {
  * - tracking=true (Add food sheet): tapping a suggestion or a Recent fills the form;
  *   the user can tweak it and then tap Add, or search again.
  */
-export default function DishInput({ onSelect, onClose, selectedDate, tracking = false, quickAdd = null }) {
-    const [dish, setDish] = useState("");
-    const [quantity, setQuantity] = useState(1);
-    const [unit, setUnit] = useState("bowl");
+export default function DishInput({ onSelect, onClose, selectedDate, tracking = false, quickAdd = null, initial = null }) {
+    // `initial` (home page): { dish, quantity, unit, photoUrl, results, note, autoSearch }
+    const [dish, setDish] = useState(initial?.dish ?? "");
+    const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
+    const [unit, setUnit] = useState(initial?.unit ?? "bowl");
     const [photos, setPhotos] = useState([]);
+    const [note, setNote] = useState(initial?.note ?? "");
     const [meal, setMeal] = useState(defaultMealForNow);
     const [isLoading, setIsLoading] = useState(false);
-    const [result, setResult] = useState(null);
+    const [result, setResult] = useState(initial?.results ?? null);
     const [searchError, setSearchError] = useState("");
     const [picked, setPicked] = useState(null); // { key, name, quantity, unit, nutrition, photosKey, imageUrl }
     const [closing, setClosing] = useState(false);
@@ -63,8 +65,19 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
     const latestRequestRef = useRef(0);
 
     useEffect(() => {
-      // Desktop only: on phones the keyboard would cover the form.
-      if (window.matchMedia?.("(pointer: fine)").matches) textInputRef.current?.focus();
+      // Desktop only, and not when we arrive with a ready example/search.
+      if (!initial && window.matchMedia?.("(pointer: fine)").matches) textInputRef.current?.focus();
+    }, []);
+
+    // Example photo: load it into the first photo slot (as a real File).
+    useEffect(() => {
+      if (!initial?.photoUrl) return;
+      let cancelled = false;
+      fetch(initial.photoUrl)
+        .then(r => r.blob())
+        .then(b => { if (!cancelled) setPhotos([new File([b], initial.photoUrl.split("/").pop(), { type: b.type || "image/jpeg", lastModified: 0 })]); })
+        .catch(() => {});
+      return () => { cancelled = true; };
     }, []);
 
     const photosKey = photosKeyOf(photos);
@@ -85,6 +98,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
         setIsLoading(true);
         setSearchError("");
         setPicked(null);
+        setNote("");
         let suggestions = [];
         try {
             suggestions = await getDishSuggestionsFromGemini(dish, quantity, unit, photos);
@@ -96,6 +110,11 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
         if (Array.isArray(suggestions) && suggestions.length > 0) setResult(suggestions);
         else lastSearchKeyRef.current = null; // allow retrying after a failure
     };
+
+    // A dish from a marketing link (?q=...) is searched straight away.
+    useEffect(() => {
+      if (initial?.autoSearch) handleSearch({ force: true });
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const pickSuggestion = (item, idx) => {
         if (!tracking) {
@@ -191,7 +210,9 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
 
                 {Array.isArray(result) && result.length > 0 && (
                     <div className="space-y-2">
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Pick the closest match</p>
+                        {note
+                          ? <p className="rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:bg-blue-900/30 dark:text-blue-100">{note}</p>
+                          : <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Pick the closest match</p>}
                         {result.map((item, idx) => {
                             const selected = pickValid && picked.key === `s${idx}`;
                             const n = (selected ? pickedNutrition : item.nutrition) || {};
@@ -208,7 +229,10 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                                     <img src={`/${item.image}`} alt="" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
                                     <span className="min-w-0 flex-1">
                                         <span className="block truncate font-semibold text-gray-900 dark:text-gray-100">{item.name}</span>
-                                        <span className="block text-xs text-gray-500 dark:text-gray-400">{portion} · P {n.protein ?? 0}g · C {n.carbs ?? 0}g · F {n.fat ?? 0}g</span>
+                                        <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">{n.protein ?? 0} g protein</span>
+                                          {portion} · C {n.carbs ?? 0}g · F {n.fat ?? 0}g
+                                        </span>
                                     </span>
                                     <span className="shrink-0 text-right">
                                         {selected

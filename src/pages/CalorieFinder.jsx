@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { getNutritionHistory, saveToHistory } from '../utils/nutritionHistory'
 import Layout from '../components/Layout'
 import { cleanDishLabel } from '../utils/units'
+import { landingSearchFrom } from '../utils/landingSearch'
 import DishInput from '../components/DishInput'
 import NutritionResult from '../components/NutritionResult'
 import PreviousSearches from '../components/PreviousSearches'
@@ -12,6 +13,8 @@ import { logEvent } from "firebase/analytics";
 export default function CalorieFinder() {
   const [result, setResult] = useState(null)
   const [previousSearches, setPreviousSearches] = useState([])
+  // ?q=... from a campaign link, otherwise the built-in eggs example.
+  const landing = useMemo(() => landingSearchFrom(window.location.search), [])
 
   useEffect(() => {
     analyticsPromise.then((analytics) => {
@@ -21,6 +24,9 @@ export default function CalorieFinder() {
           page_path: "/",
         });
         console.log("[GA] Fired page_view");
+        if (!landing.example) {
+          logEvent(analytics, "landing_search", { search_term: landing.dish, quantity: landing.quantity, unit: landing.unit });
+        }
       } else {
         console.warn("[GA skipped] Analytics not supported");
       }
@@ -45,7 +51,7 @@ export default function CalorieFinder() {
         <span>Find What’s on Your Plate</span>
       </h1>
 
-      <DishInput onSelect={handleDishSelect} />
+      <DishInput onSelect={handleDishSelect} initial={landing} />
 
       <NutritionResult result={result} />
 
