@@ -1,0 +1,3 @@
+[functions]
+  # Ship these as regular node_modules instead of bundling them
+  external_node_modules = ["firebase-admin", "nodemailer"]

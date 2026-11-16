@@ -42,6 +42,27 @@ async function createUserIfNew(user) {
   if (!snap.exists()) {
     await setDoc(ref, { createdAt: serverTimestamp() });
   }
+  // Keep contact info current (used for email reminders).
+  await setDoc(ref, {
+    authInfo: {
+      uid: user.uid,
+      email: user.email || null,
+      displayName: user.displayName || null,
+      photoURL: user.photoURL || null,
+      lastLoginAt: user.metadata?.lastSignInTime || null,
+    },
+  }, { merge: true });
+}
+
+export async function getReminderSettings() {
+  if (!auth.currentUser) return null;
+  const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
+  return { email: snap.exists() ? snap.data().reminders?.email !== false : true };
+}
+
+export async function setEmailReminders(enabled) {
+  if (!auth.currentUser) return;
+  await setDoc(doc(db, "users", auth.currentUser.uid), { reminders: { email: enabled } }, { merge: true });
 }
 
 export function logout() {
