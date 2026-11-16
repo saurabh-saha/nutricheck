@@ -1,12 +1,13 @@
 import { Link, useLocation } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Menu, Soup, BarChart3 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Menu, Soup, BarChart3, History } from "lucide-react";
 
 export default function Sidebar({ isOpen, onClose, collapsed, toggleCollapse }) {
   const location = useLocation();
 
   const navItems = [
     { path: "/", label: "Calorie Finder", icon: <Soup size={18} /> },
-    { path: "/track", label: "Nutrition Tracker", icon: <BarChart3 size={18} /> }
+    { path: "/track", label: "Nutrition Tracker", icon: <BarChart3 size={18} /> },
+    { path: "/history", label: "History", icon: <History size={18} /> }
   ];
 
   return (
@@ -48,6 +49,7 @@ export default function Sidebar({ isOpen, onClose, collapsed, toggleCollapse }) 
                 : "hover:bg-gray-100 dark:hover:bg-gray-800"
             } text-gray-700 dark:text-gray-300`}
             onClick={onClose}
+            title={collapsed ? item.label : undefined}
           >
             {item.icon}
             {!collapsed && <span>{item.label}</span>}

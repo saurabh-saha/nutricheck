@@ -1,4 +1,4 @@
-import { getFirestore, collection, addDoc, getDocs } from "firebase/firestore";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { uploadDishImage } from "../utils/firebaseLogin"
 
@@ -32,7 +32,6 @@ export function formatDate(date) {
 export async function getTrackerHistory() {
   try {
     const user = auth.currentUser;
-    let firebaseData = [];
     let localData = [];
 
     // 1. Get localStorage data
@@ -41,47 +40,23 @@ export async function getTrackerHistory() {
       try {
         localData = JSON.parse(rawLocal).map(
           e => ({
-            id: e.id || uuidv4(), // ensure local entries have ids
+            id: e.id || crypto.randomUUID(), // ensure local entries have ids
             ...e
           })
         );
-      } catch (e) {
+      } catch {
         console.warn("Invalid localStorage data, resetting...");
         localData = [];
       }
     }
 
-    // 2. If logged in, get Firebase data
+    // 2. If logged in, Firestore is the source of truth (entries can be
+    //    edited/deleted from the History page, so a stale local copy must
+    //    never be merged back in).
     if (user) {
-      const querySnapshot = await getDocs(collection(db, "users", user.uid, "intakeHistory"));
-      firebaseData = querySnapshot.docs.map(
-        doc => ({
-          id: doc.id,
-          ...doc.data()
-        })
-      );
-
-      // 3. Find entries in localData that aren't in Firebase
-      const firebaseSet = new Set(firebaseData.map(e => `${e.date}-${e.dish}`));
-      const newForFirebase = localData.filter(e => !firebaseSet.has(`${e.date}-${e.dish}`));
-
-      // 4. Push missing local entries to Firebase
-      for (const entry of newForFirebase) {
-        const ref = doc(db, "users", user.uid, "intakeHistory", entry.id);
-        await setDoc(ref, entry);
-      }
-
-      // 5. Merge all data (Firebase + local, avoiding duplicates)
-      const mergedSet = new Map();
-      [...firebaseData, ...localData].forEach(e => {
-        mergedSet.set(`${e.date}-${e.dish}`, e);
-      });
-      const mergedArray = Array.from(mergedSet.values());
-
-      // 6. Update localStorage with merged data
-      localStorage.setItem(KEY, JSON.stringify(mergedArray));
-
-      return mergedArray;
+      const firebaseData = await fetchFirestoreEntries(user.uid);
+      localStorage.setItem(KEY, JSON.stringify(firebaseData));
+      return firebaseData;
     }
 
     // 7. If not logged in, just return local data
@@ -90,6 +65,43 @@ export async function getTrackerHistory() {
     console.error("Error syncing tracker history:", err);
     return [];
   }
+}
+
+async function fetchFirestoreEntries(uid) {
+  const snapshot = await getDocs(collection(db, "users", uid, "intakeHistory"));
+  return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// ---- History page: list / edit / delete individual entries ----
+
+const entryRef = (id) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Not logged in");
+  return doc(db, "users", user.uid, "intakeHistory", id);
+};
+
+const refreshLocalCache = async () => {
+  const user = auth.currentUser;
+  if (!user) return [];
+  const all = await fetchFirestoreEntries(user.uid);
+  localStorage.setItem(KEY, JSON.stringify(all));
+  return all;
+};
+
+// All entries for the logged-in user, newest date first.
+export async function getAllEntries() {
+  const all = await refreshLocalCache();
+  return all.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+}
+
+export async function updateEntry(id, { date, dish, nutrition }) {
+  await updateDoc(entryRef(id), { date, dish, nutrition });
+  await refreshLocalCache();
+}
+
+export async function deleteEntry(id) {
+  await deleteDoc(entryRef(id));
+  await refreshLocalCache();
 }
 
 export async function saveToTracker(entry) {

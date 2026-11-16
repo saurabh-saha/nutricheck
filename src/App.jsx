@@ -5,6 +5,7 @@ import NutritionTracker from "./pages/NutritionTracker";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings"
 import CalorieFinder from "./pages/CalorieFinder";
+import History from "./pages/History";
 import WelcomeModal from "./components/WelcomeModal";
 import { useState, useEffect } from "react";
 import { registerWelcomeHandler } from "./utils/firebaseLogin";
@@ -23,6 +24,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<CalorieFinder />} />
           <Route path="/track" element={<NutritionTracker />} />
+          <Route path="/history" element={<History />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
