@@ -17,7 +17,7 @@ const fileToBase64 = (file) => {
 };
 
 export const getNutritionFromGemini = async (dish, quantity = 1, unit = 'bowl') => {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-3.8-flash' });
 
   const fullQuery = `${quantity} ${unit} of ${dish}`;
 
@@ -42,7 +42,7 @@ export const getNutritionFromGemini = async (dish, quantity = 1, unit = 'bowl') 
 };
 
 export const getDishSuggestionsFromGemini = async (dish, quantity, unit,  dishImage) => {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-3.8-flash' });
   dish = `${quantity} ${unit} of ${dish}`;
   const promptParts = [{
     text: 
