@@ -1,162 +1,52 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
-import { nutrientMap } from '../utils/nutritionTracker';
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY)
+// Gemini is called through the Netlify Function in netlify/functions/gemini.mjs.
+// The API key stays on the server; nothing secret is bundled into the browser.
+export { extractJsonFromText } from './extractJson.js';
 
-// Try models in order; each attempt is capped so the UI never hangs.
-const GEMINI_MODELS = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest'];
-const GEMINI_TIMEOUT_MS = 20000;
+const GEMINI_ENDPOINT = '/.netlify/functions/gemini';
+const CLIENT_TIMEOUT_MS = 15000;
+const MAX_IMAGE_SIDE = 1024;
 
-const generateWithFallback = async (input) => {
-  let lastErr;
-  for (const name of GEMINI_MODELS) {
-    try {
-      const model = genAI.getGenerativeModel(
-        { model: name, generationConfig: { responseMimeType: 'application/json' } },
-        { timeout: GEMINI_TIMEOUT_MS }
-      );
-      return await model.generateContent(input);
-    } catch (err) {
-      console.warn(`Gemini ${name} failed:`, err?.message || err);
-      lastErr = err;
-    }
-  }
-  throw lastErr;
+// Downscale and re-encode the photo so the upload stays small (function body limit is 6 MB).
+const imageToBase64Jpeg = async (file) => {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close?.();
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  return { data: dataUrl.split(',')[1], mimeType: 'image/jpeg' };
 };
 
-const jsonTemplate = nutrientMap.reduce((acc, { key }) => {
-  acc[key] = 0;
-  return acc;
-}, {});
-
-const fileToBase64 = (file) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]); // remove data: prefix
-    reader.onerror = (err) => reject(err);
-    reader.readAsDataURL(file);
+const callGemini = async (payload) => {
+  const res = await fetch(GEMINI_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(CLIENT_TIMEOUT_MS),
   });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Gemini function failed (${res.status})`);
+  return data.result;
 };
 
 export const getNutritionFromGemini = async (dish, quantity = 1, unit = 'bowl') => {
-
-  const fullQuery = `${quantity} ${unit} of ${dish}`;
-
-  const prompt = `
-    Give a nutrition breakdown for the following serving: "${fullQuery}".
-    Return strictly this JSON format:
-
-    ${JSON.stringify(jsonTemplate, null, 2)}
-
-    All values must be integers. Use grams (g) for everything and kcal for calories. Do not include any units in the values.
-    Strictly return only this JSON object — no explanations, no extra text, no nested structures.
-  `;
-
   try {
-    const result = await generateWithFallback(prompt);
-    const text = result.response.text();
-    return extractJsonFromText(text);
+    return await callGemini({ kind: 'nutrition', dish, quantity, unit });
   } catch (err) {
-    console.error('Gemini SDK error:', err);
+    console.error('Gemini error:', err);
     return null;
   }
 };
 
-export const getDishSuggestionsFromGemini = async (dish, quantity, unit,  dishImage) => {
-  dish = `${quantity} ${unit} of ${dish}`;
-  const promptParts = [{
-    text: 
-    `
-      Create exactly 3 dish suggestions based on "${dish || 'the dish in the image'}".
-      Rule:
-      1. If a dish name or any food like fruit, egg etc is provided, 
-      the FIRST suggestion MUST be EXACTLY the same string as the input.
-      Do NOT modify, expand, or reinterpret it.
-      Example:
-      - Input: "pomegranate"
-      - Output first name: "pomegranate" (NOT "pomegranate seeds", NOT "pomegranate juice")      2. If only an image is provided, infer the most likely dish and use it as the first suggestion.
-      2. The second and third suggestions should be close variants (different styles, toppings, ingredients).
-      
-      For each suggestion, include:
-      - name (string)
-      - image (string): one of these file names [badfats.webp, calorie.webp, carbs.webp, fiber.webp, goodfats.jpg, minerals.jpg, protein.webp, vitamins.webp]
-      - nutrition (object in this format):
-        ${JSON.stringify(jsonTemplate, null, 2)}
-
-      Output format: strictly a JSON array like this:
-      [
-        {
-          "name": "Dish Name",
-          "image": "calorie.webp",
-          "nutrition": { ... }
-        },
-        ...
-      ]
-
-      Rules:
-      - All nutrition values must be integers.
-      - Use kcal for calories, grams (g) for all other values.
-      - Strictly return JSON only — no explanations or extra text.
-      - URLs should be tested and should not show to image found. otherwise default to 
-    `
-  }];
-
-  if (dishImage) {
-    const base64Image = await fileToBase64(dishImage);
-    promptParts.push({
-      inlineData: {
-        data: base64Image,
-        mimeType: dishImage.type
-      }
-    });
-  }
-
+export const getDishSuggestionsFromGemini = async (dish, quantity, unit, dishImage) => {
   try {
-    const result = await generateWithFallback(promptParts);
-    const text = result.response.text();
-    return extractJsonFromText(text);
+    const image = dishImage ? await imageToBase64Jpeg(dishImage) : undefined;
+    const result = await callGemini({ kind: 'suggestions', dish, quantity, unit, image });
+    return Array.isArray(result) ? result : [];
   } catch (err) {
-    console.error('Gemini SDK error:', err);
+    console.error('Gemini error:', err);
     return [];
   }
 };
-
-
-
-
-export const extractJsonFromText = (text) => {
-  try {
-    const raw = text.trim();
-    let jsonString = null;
-
-    // 1. Whole response is JSON (JSON mode)
-    if (raw.startsWith('{') || raw.startsWith('[')) {
-      jsonString = raw;
-    } else {
-      // 2. ```json ... ``` block
-      const codeBlockMatch = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-      if (codeBlockMatch) {
-        jsonString = codeBlockMatch[1].trim();
-      } else {
-        // 3. Outermost [...] or {...} (greedy, so nested objects/arrays stay intact)
-        const jsonMatch = raw.match(/[[{][\s\S]*[\]}]/);
-        if (jsonMatch) jsonString = jsonMatch[0];
-      }
-    }
-
-    if (!jsonString) throw new Error('No valid JSON block found');
-
-    const parsed = JSON.parse(jsonString);
-
-    // 3. Always return flat nutrition object if nested
-    if (parsed?.nutrition && typeof parsed.nutrition === 'object') {
-      return parsed.nutrition;
-    }
-
-    // 4. If already flat nutrition object
-    return parsed;
-  } catch (err) {
-    console.error('JSON parsing failed:', err);
-    return null;
-  }
-};
-
