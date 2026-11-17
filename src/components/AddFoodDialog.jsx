@@ -88,7 +88,7 @@ export default function AddFoodDialog({ history = [], setHistory, setTodayData, 
       <DialogContent className="mobile-sheet w-full max-w-md max-h-[92dvh] overflow-y-auto overflow-x-hidden grid-cols-[minmax(0,1fr)] gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] top-auto bottom-0 translate-y-0 rounded-t-3xl border-0 bg-gray-50 dark:bg-gray-900 sm:top-[50%] sm:bottom-auto sm:translate-y-[-50%] sm:rounded-2xl sm:p-6">
         <DialogHeader>
           <div className="mx-auto mb-1 h-1.5 w-10 rounded-full bg-gray-300 dark:bg-gray-700 sm:hidden" aria-hidden />
-          <div className="flex items-center gap-3 pr-8">
+          <div className="flex items-center justify-between gap-3 pr-9">
             <DialogTitle className="text-left text-lg">Add food</DialogTitle>
             <DateChip value={selectedDate} onChange={setSelectedDate} />
           </div>

@@ -5,7 +5,6 @@ import { MEALS, defaultMealForNow } from "../utils/nutritionTracker"
 import { UNITS, unitInfo, cleanDishLabel, isMeasure } from "../utils/units"
 import { favoriteKey } from "../utils/favorites"
 import FadeScale from "./ui/FadeScale";
-import QuickAdd from "./QuickAdd";
 import DishComposer from "./DishComposer";
 import PortionPicker from "./PortionPicker";
 
@@ -154,44 +153,27 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
 
     const portion = unitWord(quantity, unit);
 
+    // Dropdown suggestions: favourites first, then recent foods (deduplicated).
+    const suggestions = (() => {
+        if (!tracking || !quickAdd) return [];
+        const seen = new Set();
+        const out = [];
+        for (const [list, fav] of [[quickAdd.favorites || [], true], [quickAdd.recent || [], false]]) {
+            for (const it of list) {
+                const label = cleanDishLabel(it.dish);
+                const key = favoriteKey(label);
+                if (seen.has(key)) continue;
+                seen.add(key);
+                out.push({ key, label, kcal: Math.round(Number(it.nutrition?.calories) || 0), fav, imageUrl: it.imageUrl, source: it });
+            }
+        }
+        return out;
+    })();
+
     return (
         <FadeScale isClosing={closing}>
             <div className="flex w-full min-w-0 flex-col gap-4">
-                {tracking && (
-                  <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="Meal">
-                    {MEALS.map(m => {
-                      const Icon = MEAL_ICONS[m.key];
-                      const active = meal === m.key;
-                      return (
-                        <button
-                          key={m.key}
-                          type="button"
-                          role="radio"
-                          aria-checked={active}
-                          onClick={() => setMeal(m.key)}
-                          className={`flex flex-col items-center rounded-xl border py-2 text-xs font-medium transition active:scale-95 ${active
-                            ? "border-blue-600 bg-blue-600 text-white"
-                            : "border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"}`}
-                        >
-                          <Icon size={18} className={active ? "text-white" : "text-gray-500 dark:text-gray-400"} />
-                          <span className="mt-1">{m.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {tracking && quickAdd && !result && (
-                  <QuickAdd
-                    favorites={quickAdd.favorites}
-                    recent={quickAdd.recent}
-                    busy={quickAdd.busy}
-                    selectedKey={pickValid ? picked.key : null}
-                    onToggleFavorite={quickAdd.onToggleFavorite}
-                    onPick={pickRecent}
-                  />
-                )}
-
+                {/* 1. The question every visit starts with */}
                 <DishComposer
                     inputRef={textInputRef}
                     value={dish}
@@ -199,10 +181,41 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                     photos={photos}
                     onPhotos={setPhotos}
                     onSubmit={() => handleSearch({ force: true })}
-                    submitDisabled={isLoading || !canSearch}
+                    suggestions={suggestions}
+                    onPickSuggestion={(s) => pickRecent(s.source)}
+                    onToggleFavorite={tracking && quickAdd ? (s) => quickAdd.onToggleFavorite(s.source, s.fav) : undefined}
                 />
 
+                {/* 2. How much */}
                 <PortionPicker quantity={quantity} setQuantity={setQuantity} unit={unit} setUnit={setUnit} />
+
+                {/* 3. Which meal (pre-set from the time of day) */}
+                {tracking && (
+                  <div className="space-y-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Meal</span>
+                    <div className="grid grid-cols-4 gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800" role="radiogroup" aria-label="Meal">
+                      {MEALS.map(m => {
+                        const Icon = MEAL_ICONS[m.key];
+                        const active = meal === m.key;
+                        return (
+                          <button
+                            key={m.key}
+                            type="button"
+                            role="radio"
+                            aria-checked={active}
+                            onClick={() => setMeal(m.key)}
+                            className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition ${active
+                              ? "bg-white text-blue-700 shadow-sm dark:bg-gray-700 dark:text-white"
+                              : "text-gray-600 dark:text-gray-300"}`}
+                          >
+                            <Icon size={14} className={active ? "text-blue-600 dark:text-blue-400" : "text-gray-400"} />
+                            {m.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {searchError && (
                     <p role="alert" className="text-sm text-red-600 dark:text-red-400">{searchError}</p>
