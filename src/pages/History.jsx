@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { onAuthStateChanged } from "firebase/auth";
-import { Pencil, Trash2, Check, X, Search, Star, Utensils } from "lucide-react";
+import { Pencil, Trash2, Check, X, Search, Star, Utensils, CalendarDays, ChevronDown } from "lucide-react";
 import Layout from "../components/Layout";
 import { auth } from "../utils/firebaseConfig";
 import GuestBanner from "../components/GuestBanner";
 import { cleanDishLabel } from "../utils/units";
 import { getFavorites, addFavorite, removeFavorite, favoriteKey } from "../utils/favorites";
-import { getAllEntries, updateEntry, deleteEntry, nutrientMap, MEALS, mealOrder } from "../utils/nutritionTracker";
+import { getAllEntries, updateEntry, deleteEntry, nutrientMap, MEALS, mealOrder, getTodayDate, formatDate } from "../utils/nutritionTracker";
+import { fuzzyScore } from "../utils/fuzzy";
 
 const PAGE_SIZE = 50;
 
@@ -147,12 +148,45 @@ function EntryRow({ entry, onEdit, onDelete, onToggleFavorite, isFavorite, busy 
   );
 }
 
+// "All dates ▾" / "Today ▾" chip: tap to pick a day from the calendar.
+function DayChip({ value, onChange }) {
+  const today = getTodayDate();
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  const label = !value ? "All dates" : value === today ? "Today" : value === formatDate(y) ? "Yesterday"
+    : new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+  return (
+    <div className="flex items-center gap-1">
+      <div className="relative flex items-center gap-1.5 overflow-hidden rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
+        <CalendarDays size={15} className="text-blue-600" />
+        {label}
+        <ChevronDown size={14} className="text-gray-400" />
+        <input
+          type="date"
+          value={value || ""}
+          max={today}
+          onChange={(e) => onChange(e.target.value || null)}
+          onClick={(e) => e.currentTarget.showPicker?.()}
+          aria-label="Show entries for a date"
+          className="absolute inset-0 h-full w-full min-w-0 cursor-pointer appearance-none opacity-0"
+        />
+      </div>
+      {value && (
+        <button type="button" onClick={() => onChange(null)} aria-label="Show all dates"
+          className="grid h-8 w-8 place-items-center rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
+          <X size={16} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function History() {
   const [user, authLoading] = useAuthState(auth);
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [day, setDay] = useState(null); // YYYY-MM-DD, or null for all dates
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [editingId, setEditingId] = useState(null);
   const [busyId, setBusyId] = useState(null);
@@ -186,8 +220,9 @@ export default function History() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return q ? entries.filter((e) => (e.dish || "").toLowerCase().includes(q) || (e.date || "").includes(q)) : entries;
-  }, [entries, query]);
+    return entries.filter((e) => (!day || e.date === day)
+      && (!q || (e.date || "").includes(q) || fuzzyScore(q, cleanDishLabel(e.dish)) !== null));
+  }, [entries, query, day]);
 
   // Group the visible rows by day, keeping newest-first order.
   const groups = useMemo(() => {
@@ -246,13 +281,16 @@ export default function History() {
   return (
     <Layout>
       <div className="space-y-4">
-        <div className="flex items-baseline justify-between gap-2">
-          <h1 className="text-xl font-semibold">History</h1>
-          {!loading && (
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
-            </span>
-          )}
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h1 className="text-xl font-semibold">History</h1>
+            {!loading && (
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
+              </span>
+            )}
+          </div>
+          <DayChip value={day} onChange={(v) => { setDay(v); setVisible(PAGE_SIZE); }} />
         </div>
 
         {!authLoading && !user && <GuestBanner />}
@@ -275,7 +313,9 @@ export default function History() {
           <p className="text-gray-500 dark:text-gray-400">Loading your history…</p>
         ) : filtered.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400">
-            {entries.length === 0 ? "Nothing tracked yet. Add food from the Nutrition Tracker." : "No entries match your search."}
+            {entries.length === 0 ? "Nothing tracked yet. Add food from the Nutrition Tracker."
+              : day && !query.trim() ? "Nothing logged on this day."
+              : "No entries match your search."}
           </p>
         ) : (
           <>
