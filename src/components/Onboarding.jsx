@@ -5,6 +5,7 @@ import { saveProfileToFirestore } from "../utils/firebaseLogin";
 import { auth } from "../utils/firebaseConfig";
 import { useIntake } from "../context/ProfileContext";
 import CalorieRing from "./CalorieRing";
+import { track } from "../utils/track";
 
 export const ONBOARDING_DONE_KEY = "nutricheck-onboarding-done";
 
@@ -134,6 +135,7 @@ export default function Onboarding({ onDone, onLogFirstMeal }) {
     localStorage.setItem("userProfile", JSON.stringify(profile));
     localStorage.setItem(ONBOARDING_DONE_KEY, "1");
     if (result) setRecommendedIntake(result);
+    track("goal_set", { from: "onboarding", goal });
     if (auth.currentUser) {
       saveProfileToFirestore(profile, result).catch((err) => console.error("Couldn't save profile:", err));
     }

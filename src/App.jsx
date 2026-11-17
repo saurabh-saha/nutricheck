@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { IntakeProvider } from "./context/ProfileContext";
 import { DarkModeProvider } from "./context/DarkModeContext";
 import NutritionTracker from "./pages/NutritionTracker";
@@ -10,6 +10,7 @@ import WelcomeModal from "./components/WelcomeModal";
 import { Toaster } from "./components/ui/toaster";
 import { useState, useEffect } from "react";
 import { registerWelcomeHandler } from "./utils/firebaseLogin";
+import { trackVisit, trackPageView } from "./utils/track";
 
 export default function App() {
   const [welcome, setWelcome] = useState({ show: false, name: "" });
@@ -17,7 +18,12 @@ export default function App() {
   // Register the handler once so loginWithGoogle can trigger the modal
   useEffect(() => {
     registerWelcomeHandler(setWelcome);
+    trackVisit();
   }, []);
+
+  // One page_view per screen (the URL keeps any utm_* tags for attribution).
+  const { pathname } = useLocation();
+  useEffect(() => { trackPageView(pathname); }, [pathname]);
 
   return (
     <DarkModeProvider>

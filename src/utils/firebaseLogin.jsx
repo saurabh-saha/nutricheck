@@ -5,6 +5,7 @@ import {
 } from "firebase/auth";
 import { auth, db } from "./firebaseConfig";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { track } from "./track";
 
 const provider = new GoogleAuthProvider();
 // Always force account chooser to appear
@@ -21,7 +22,8 @@ export function registerWelcomeHandler(fn) {
 export async function loginWithGoogle() {
   try {
     const result = await signInWithPopup(auth, provider);
-    await createUserIfNew(result.user);
+    const isNew = await createUserIfNew(result.user);
+    track(isNew ? "sign_up" : "login", { method: "google" });
 
     // Trigger welcome modal if handler is set
     if (setWelcomeState) {
@@ -38,7 +40,8 @@ export async function loginWithGoogle() {
 async function createUserIfNew(user) {
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
-  if (!snap.exists()) {
+  const isNew = !snap.exists();
+  if (isNew) {
     await setDoc(ref, { createdAt: serverTimestamp() });
   }
   // Keep contact info current (used for email reminders).
@@ -51,6 +54,7 @@ async function createUserIfNew(user) {
       lastLoginAt: user.metadata?.lastSignInTime || null,
     },
   }, { merge: true });
+  return isNew;
 }
 
 export async function getReminderSettings() {
