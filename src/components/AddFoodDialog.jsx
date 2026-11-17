@@ -31,7 +31,9 @@ function DateChip({ value, onChange }) {
     return { min: formatDate(m), max: formatDate(t) }
   }, [])
   return (
-    <label className="relative flex cursor-pointer items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
+    // A div (not a label) with overflow hidden: the invisible date input can only be
+    // tapped inside the chip, even where Safari draws date inputs larger.
+    <div className="relative flex cursor-pointer items-center gap-1.5 overflow-hidden rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
       <CalendarDays size={15} className="text-blue-600" />
       {dayLabel(value)}
       <ChevronDown size={14} className="text-gray-400" />
@@ -43,9 +45,10 @@ function DateChip({ value, onChange }) {
         onChange={(e) => e.target.value && onChange(e.target.value)}
         onClick={(e) => e.currentTarget.showPicker?.()}
         aria-label="Date"
-        className="absolute inset-0 cursor-pointer opacity-0"
+        tabIndex={-1}
+        className="absolute inset-0 h-full w-full min-w-0 cursor-pointer appearance-none opacity-0"
       />
-    </label>
+    </div>
   )
 }
 
@@ -86,6 +89,9 @@ export default function AddFoodDialog({ history = [], setHistory, setTodayData, 
       </DialogTrigger>
 
       <DialogContent
+        // Don't auto-focus anything when the sheet opens: on iPhone that focused the
+        // hidden date input and popped the calendar. (Desktop focuses the food box itself.)
+        onOpenAutoFocus={(e) => e.preventDefault()}
         // Esc closes the food dropdown first, not the whole sheet.
         onEscapeKeyDown={(e) => { if (document.querySelector('[role="combobox"][aria-expanded="true"]')) e.preventDefault() }}
         className="mobile-sheet w-full max-w-md max-h-[92dvh] overflow-y-auto overflow-x-hidden grid-cols-[minmax(0,1fr)] gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] top-auto bottom-0 translate-y-0 rounded-t-3xl border-0 bg-gray-50 dark:bg-gray-900 sm:top-[50%] sm:bottom-auto sm:translate-y-[-50%] sm:rounded-2xl sm:p-6">
