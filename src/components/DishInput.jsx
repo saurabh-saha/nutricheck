@@ -6,6 +6,7 @@ import { UNITS, unitInfo, cleanDishLabel, isMeasure, parseFoodQuery, inferUnit, 
 import { favoriteKey } from "../utils/favorites"
 import { DEFAULT_EXAMPLE } from "../utils/landingSearch"
 import FadeScale from "./ui/FadeScale";
+import { toast } from "../hooks/use-toast";
 import DishComposer, { MIN_QUERY } from "./DishComposer";
 import PortionPicker from "./PortionPicker";
 
@@ -62,7 +63,10 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
     const [meal, setMeal] = useState(defaultMealForNow);
     const [isLoading, setIsLoading] = useState(false);
     const [result, setResult] = useState(initial?.results ?? null);
-    const [searchError, setSearchError] = useState("");
+    const [attempt, setAttempt] = useState(null);        // { n, max } while retrying
+    const [cooldownUntil, setCooldownUntil] = useState(0); // after repeated failures
+    const [, setTick] = useState(0);
+    const failStreakRef = useRef(0);
     const [picked, setPicked] = useState(null); // { key, item, photosKey }
     const [catalog, setCatalog] = useState([]);
     const [searchedFor, setSearchedFor] = useState(initial?.results ? { food: (initial.dish || "").toLowerCase(), photos: null } : null);
@@ -125,8 +129,16 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
       && parseFoodQuery(dish).food.trim().toLowerCase() === searchedFor.food
       && (searchedFor.photos === null || photosKey === searchedFor.photos));
 
+    const cooldownLeft = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
+    // Re-render every second while cooling down, for the countdown.
+    useEffect(() => {
+        if (!cooldownLeft) return;
+        const t = setInterval(() => setTick(x => x + 1), 1000);
+        return () => clearInterval(t);
+    }, [cooldownLeft > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+
     const handleSearch = async () => {
-        if (!canSearch) return;
+        if (!canSearch || cooldownLeft > 0) return;
         // Use the amount typed into the box ("2 eggs"), and search for the food alone.
         const p = parseFoodQuery(dish);
         const food = p.food;
@@ -139,17 +151,30 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
 
         const requestId = ++latestRequestRef.current;
         setIsLoading(true);
-        setSearchError("");
         setPicked(null);
         setNote("");
         let suggestions = [];
         try {
-            suggestions = await getDishSuggestionsFromGemini(food, q, u, photos);
+            suggestions = await getDishSuggestionsFromGemini(food, q, u, photos, {
+                onAttempt: (n, max) => { if (requestId === latestRequestRef.current) setAttempt({ n, max }); },
+            });
+            failStreakRef.current = 0;
         } catch (err) {
-            if (requestId === latestRequestRef.current) setSearchError(err.message || "Search failed. Please try again.");
+            if (requestId === latestRequestRef.current) {
+                if (err.transient) {
+                    // Already retried with backoff; now cool off for longer each time (5s, 10s, 20s… max 60s).
+                    failStreakRef.current += 1;
+                    const wait = Math.min(60, 5 * 2 ** (failStreakRef.current - 1));
+                    setCooldownUntil(Date.now() + wait * 1000);
+                    toast({ title: "Couldn't get nutrition", description: err.message, variant: "destructive" });
+                } else {
+                    toast({ title: "Search not available", description: err.message || "Please try again.", variant: "destructive" });
+                }
+            }
         }
         if (requestId !== latestRequestRef.current) return; // a newer search superseded this one
         setIsLoading(false);
+        setAttempt(null);
         if (!Array.isArray(suggestions) || !suggestions.length) return;
         // Older cached answers don't say which serving they're for: it's the one we asked.
         const items = suggestions.map(s => ({ baseQuantity: q, baseUnit: u, ...s }));
@@ -185,8 +210,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
         if (s.group === "Recent") {
             setPhotos([]);
             setResult(null);
-            setSearchError("");
-            choose(s.item, s.key, { adoptAmount: true });
+                choose(s.item, s.key, { adoptAmount: true });
         } else {
             choose(s.item, s.key);
         }
@@ -294,10 +318,6 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                   </div>
                 )}
 
-                {searchError && (
-                    <p role="alert" className="text-sm text-red-600 dark:text-red-400">{searchError}</p>
-                )}
-
                 {Array.isArray(result) && result.length > 0 && (
                     <div className="space-y-2">
                         {note
@@ -390,10 +410,11 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                         <button
                           type="button"
                           onClick={handleSearch}
-                          disabled={isLoading || !canSearch}
+                          disabled={isLoading || !canSearch || cooldownLeft > 0}
                           className="w-full rounded-2xl bg-blue-600 px-4 py-3.5 text-base font-semibold text-white active:scale-[0.98] disabled:opacity-50"
                         >
-                          {isLoading ? "Finding nutrition…"
+                          {isLoading ? (attempt?.n > 1 ? `Still working… (try ${attempt.n} of ${attempt.max})` : "Finding nutrition…")
+                            : cooldownLeft > 0 ? `Try again in ${cooldownLeft}s`
                             : canSearch ? `Find nutrition for ${portion}`
                             : queryLength > 0 ? `Type at least ${MIN_QUERY} letters` : "Type a dish or add a photo"}
                         </button>

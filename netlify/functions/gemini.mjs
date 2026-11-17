@@ -138,7 +138,7 @@ export default async (req, context) => {
     const remaining = deadline - Date.now();
     if (remaining < 1000) break;
     try {
-      const text = await callGemini(apiKey, model, parts, model === MODELS[0] ? Math.min(6000, remaining) : remaining);
+      const text = await callGemini(apiKey, model, parts, model === MODELS[0] ? Math.min(7000, remaining) : remaining);
       const parsed = extractJsonFromText(text);
       if (parsed) {
         let result = parsed;
