@@ -89,7 +89,24 @@ const cleanIdeas = (parsed) => (Array.isArray(parsed?.ideas) ? parsed.ideas : Ar
     unit: IDEA_UNITS.includes(i.unit) ? i.unit : 'bowl',
     why: clean(i.why, 80),
     nutrition: numbers(i.nutrition),
+    ...(MEALS.includes(i.meal) ? { meal: i.meal } : {}),
   }));
+
+// ---- "Fix what you keep missing": 2-3 easy additions or swaps ----
+const MISS_KEYS = ['fiber', 'protein', 'calories'];
+const fixesPrompt = ({ misses, usual }) => `
+You are a practical Indian nutrition coach. Over the last few days this person has been:
+${misses.map((m) => m.kind === 'low'
+    ? `- low on ${m.key}: about ${m.avg} g a day vs a goal of ${m.target} g`
+    : `- over on calories: about ${m.avg} kcal a day vs a goal of ${m.target} kcal`).join('\n')}
+Dishes they often eat: ${usual.length ? JSON.stringify(usual) : 'unknown'}.
+Suggest exactly 3 small, specific, everyday Indian fixes that close these gaps, worst gap first.
+- For a nutrient they lack: something easy to ADD to a meal (e.g. a bowl of sprouts chaat at snack, a cucumber-carrot salad at lunch).
+- For too many calories: a lighter SWAP for one of their usual dishes.
+Each fix: "name" (dish only), "quantity" (number), "unit" (one of ${JSON.stringify(IDEA_UNITS)}), "meal" (one of ${JSON.stringify(MEALS)}),
+"why" (max 60 characters, with the number, e.g. "+8 g fiber, a third of your gap"), "nutrition" for that amount.
+Output strictly JSON: {"fixes": [{"name": "...", "quantity": 1, "unit": "bowl", "meal": "snack", "why": "...", "nutrition": ${JSON.stringify(Object.fromEntries(NUM_KEYS.map((k) => [k, 0])))}}]}
+Integers only. JSON only.`;
 
 const callGemini = async (apiKey, model, parts, timeoutMs) => {
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
@@ -126,6 +143,7 @@ export default async (req, context) => {
 
   const { kind = 'suggestions' } = body || {};
   if (kind === 'ideas') return handleIdeas(body, apiKey, uid, context);
+  if (kind === 'fixes') return handleFixes(body, apiKey, uid, context);
   // Up to 3 photos of the same meal; `image` is the older single-photo field.
   const images = (Array.isArray(body?.images) ? body.images : body?.image ? [body.image] : []).filter(Boolean);
   const dish = clean(body?.dish);
@@ -240,6 +258,48 @@ async function handleIdeas(body, apiKey, uid, context) {
       }
     } catch (err) {
       console.warn('Ideas failed:', err.message);
+    }
+  }
+  return json(502, { error: 'AI service unavailable, please try again' });
+}
+
+async function handleFixes(body, apiKey, uid, context) {
+  const misses = (Array.isArray(body?.misses) ? body.misses : []).slice(0, 3)
+    .filter((m) => MISS_KEYS.includes(m?.key))
+    .map((m) => ({ key: m.key, kind: m.kind === 'high' ? 'high' : 'low', avg: Math.max(0, Math.round(Number(m.avg) || 0)), target: Math.max(1, Math.round(Number(m.target) || 0)) }));
+  if (!misses.length) return json(400, { error: 'Nothing to fix' });
+  const usual = names(body?.usual);
+
+  const r = (n) => Math.round(n / 5) * 5;
+  const cacheParts = ['v1', 'fixes', ...misses.map((m) => `${m.key}:${m.kind}:${r(m.avg)}:${r(m.target)}`), usual.join('|')];
+  try {
+    const cached = await readCache(cacheParts);
+    if (cached) return json(200, { result: cached, cached: true });
+  } catch (err) {
+    console.warn('Cache read failed:', err.message);
+  }
+  let blocked = null;
+  try {
+    blocked = await consumeQuota({ uid, ip: context?.ip });
+  } catch (err) {
+    console.error('Quota check failed, allowing request:', err.message);
+  }
+  if (blocked) return json(429, { error: blocked });
+
+  const parts = [{ text: fixesPrompt({ misses, usual }) }];
+  const deadline = Date.now() + DEADLINE_MS;
+  for (const model of MODELS) {
+    const remaining = deadline - Date.now();
+    if (remaining < 1000) break;
+    try {
+      const parsed = extractJsonFromText(await callGemini(apiKey, model, parts, model === MODELS[0] ? Math.min(7000, remaining) : remaining));
+      const fixes = cleanIdeas({ ideas: parsed?.fixes ?? parsed }).map((f) => ({ meal: 'snack', ...f }));
+      if (fixes.length) {
+        await writeCache(cacheParts, fixes).catch((err) => console.warn('Cache write failed:', err.message));
+        return json(200, { result: fixes });
+      }
+    } catch (err) {
+      console.warn('Fixes failed:', err.message);
     }
   }
   return json(502, { error: 'AI service unavailable, please try again' });
