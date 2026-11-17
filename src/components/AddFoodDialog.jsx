@@ -15,7 +15,7 @@ import { handleAddEntry, getRecentDishes, getTodayDate } from "../utils/nutritio
 import { getFavorites, addFavorite, removeFavorite } from "../utils/favorites"
 import { cleanDishLabel } from "../utils/units"
 
-export default function AddFoodDialog({ history = [], setHistory, setTodayData, open, onOpenChange }) {
+export default function AddFoodDialog({ history = [], setHistory, setTodayData, open, onOpenChange, date = null, meal = null, onMealChange, prefill = null, showTrigger = true }) {
   const [selectedDate, setSelectedDate] = useState(getTodayDate())
   const [favorites, setFavorites] = useState([])
   const closeRef = useRef(null)
@@ -26,8 +26,8 @@ export default function AddFoodDialog({ history = [], setHistory, setTodayData, 
     getFavorites().then(setFavorites).catch(err => console.error("Couldn't load favourites:", err))
   }, [history.length])
 
-  // Opening the sheet again starts on today.
-  useEffect(() => { if (open) setSelectedDate(getTodayDate()) }, [open])
+  // Opening the sheet starts on the day the page is showing (today by default).
+  useEffect(() => { if (open) setSelectedDate(date || getTodayDate()) }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleToggleFavorite = async (item, isFavorite) => {
     try {
@@ -42,14 +42,14 @@ export default function AddFoodDialog({ history = [], setHistory, setTodayData, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
+      {showTrigger && <DialogTrigger asChild>
         <button
           className="fixed bottom-6 right-6 bg-blue-500 text-white px-4 py-3 rounded-full shadow-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
           aria-label="Add food for today"
         >
           ➕
         </button>
-      </DialogTrigger>
+      </DialogTrigger>}
 
       <DialogContent
         // Don't auto-focus anything when the sheet opens: on iPhone that focused the
@@ -70,6 +70,9 @@ export default function AddFoodDialog({ history = [], setHistory, setTodayData, 
             tracking
             selectedDate={selectedDate}
             quickAdd={{ favorites, recent, onToggleFavorite: handleToggleFavorite }}
+            meal={meal ?? undefined}
+            onMealChange={onMealChange}
+            prefill={prefill}
             onSelect={(dish, quantity, unit, nutrition, photos, date, meal, thumb, extras) => {
                 handleAddEntry({
                   dish, quantity, unit, photos, thumb, extras, nutrition, meal,

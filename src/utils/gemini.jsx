@@ -104,3 +104,15 @@ export const getMealIdeas = async (payload) => {
     return [];
   }
 };
+
+// 2-3 easy fixes for nutrients someone keeps missing. Returns [] if unavailable.
+// payload: { misses: [{ key, kind, avg, target }], usual: [names] }
+export const getMissFixes = async (payload) => {
+  try {
+    const result = await callGemini({ kind: 'fixes', ...payload });
+    return Array.isArray(result) ? result : [];
+  } catch (err) {
+    console.warn('Fixes unavailable:', err.message);
+    return [];
+  }
+};
