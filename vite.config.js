@@ -7,6 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: false, // registered in src/main.jsx (auto-reload on update)
       manifest: {
         name: 'NutriCheck🥗',
         short_name: 'NutriCheck🥗',
