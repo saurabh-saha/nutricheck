@@ -40,7 +40,7 @@ function Thumb({ file, onRemove, label }) {
  */
 export default function DishComposer({
   value, onChange, photos, onPhotos, inputRef, onSubmit,
-  suggestions = [], onPickSuggestion, onToggleFavorite,
+  suggestions = [], onPickSuggestion, onToggleFavorite, placeholder = "What did you eat?",
 }) {
   const fileRef = useRef(null);
   const [open, setOpen] = useState(false);
@@ -95,7 +95,7 @@ export default function DishComposer({
             onFocus={() => setOpen(true)}
             onBlur={() => setOpen(false)}
             onKeyDown={onKeyDown}
-            placeholder={photos.length ? "Add a name (optional)" : "What did you eat?"}
+            placeholder={photos.length ? "Add a name (optional)" : placeholder}
             enterKeyHint="search"
             autoComplete="off"
             role="combobox"

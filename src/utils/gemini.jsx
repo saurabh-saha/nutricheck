@@ -92,3 +92,15 @@ export const getDishSuggestionsFromGemini = async (dish, quantity, unit, photos,
     throw out;
   }
 };
+
+// 3 ideas for the coming meal, from the day so far. Returns [] if the AI is unavailable.
+// payload: { meal, eaten, targets, usual: [names], today: [names] }
+export const getMealIdeas = async (payload) => {
+  try {
+    const result = await callGemini({ kind: 'ideas', ...payload });
+    return Array.isArray(result) ? result : [];
+  } catch (err) {
+    console.warn('Meal ideas unavailable:', err.message);
+    return [];
+  }
+};

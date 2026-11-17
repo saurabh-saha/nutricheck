@@ -55,8 +55,10 @@ const portionData = (item) => ({
  * - Results carry per-100 g data, so changing the amount never needs a new search.
  * - tracking=false (home page): tapping a result shows its nutrition right away.
  * - tracking=true (Add food sheet): tapping a result fills the form; then Add.
+ * - compact (home page): amount, meal and the action bar appear only once
+ *   there's something to look up or add.
  */
-export default function DishInput({ onSelect, onClose, selectedDate, tracking = false, quickAdd = null, initial = null, onPreview = null }) {
+export default function DishInput({ onSelect, onClose, selectedDate, tracking = false, quickAdd = null, initial = null, onPreview = null, compact = false, meal: mealProp, onMealChange, inputRef: inputRefProp, prefill = null }) {
     // `initial` (home page): { dish, quantity, unit, photoUrl, results, note, autoSearch }
     const [dish, setDish] = useState(initial?.dish ?? "");
     const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
@@ -65,7 +67,10 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
     const [amountOpen, setAmountOpen] = useState(false);
     const [photos, setPhotos] = useState([]);
     const [note, setNote] = useState(initial?.note ?? "");
-    const [meal, setMeal] = useState(defaultMealForNow);
+    const [ownMeal, setOwnMeal] = useState(defaultMealForNow);
+    // The page can control the meal (home: tapping Snack on the day card).
+    const meal = mealProp ?? ownMeal;
+    const setMeal = onMealChange ?? setOwnMeal;
     const [isLoading, setIsLoading] = useState(false);
     const [result, setResult] = useState(initial?.results ?? null);
     const [attempt, setAttempt] = useState(null);        // { n, max } while retrying
@@ -77,7 +82,8 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
     const [catalog, setCatalog] = useState([]);
     const [searchedFor, setSearchedFor] = useState(initial?.results ? { food: (initial.dish || "").toLowerCase(), photos: null } : null);
     const [closing, setClosing] = useState(false);
-    const textInputRef = useRef(null);
+    const ownInputRef = useRef(null);
+    const textInputRef = inputRefProp ?? ownInputRef;
     const latestRequestRef = useRef(0);
 
     useEffect(() => {
@@ -208,6 +214,21 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
         if (!amountTouched && !p.unit && !inferred && UNIT_KEYS.has(aiUnit)) setUnit(aiUnit);
     };
 
+    // A meal idea tapped on the home page: fill the form with it, ready to add.
+    // prefill: { item, quantity, unit, nonce }
+    useEffect(() => {
+      if (!prefill) return;
+      setDish(prefill.item.name);
+      setQuantity(prefill.quantity);
+      setUnit(prefill.unit);
+      setAmountTouched(true);
+      setAmountOpen(false);
+      setPhotos([]);
+      setResult(null);
+      setNote("");
+      setPicked({ key: "idea", item: prefill.item, photosKey: "" });
+    }, [prefill?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
+
     // A dish from a marketing link (?q=...) is searched straight away.
     useEffect(() => {
       if (initial?.autoSearch) handleSearch();
@@ -251,6 +272,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
     };
 
     const portion = unitWord(quantity, unit);
+    const showDetails = !compact || Boolean(dish.trim()) || photos.length > 0 || Boolean(picked) || isLoading;
 
     // Dropdown: your recent foods, then dishes the app already knows.
     const suggestions = (() => {
@@ -294,11 +316,12 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                     onSubmit={handleSearch}
                     suggestions={suggestions}
                     onPickSuggestion={pickFromDropdown}
+                    placeholder={compact ? `${MEALS.find(m => m.key === meal)?.label ?? "Food"}: try “2 rotis”` : undefined}
                     onToggleFavorite={tracking && quickAdd ? (s) => quickAdd.onToggleFavorite(s.source, s.fav) : undefined}
                 />
 
                 {/* 2. Amount: worked out for you; edit it in place */}
-                <div className="rounded-2xl bg-gray-100 dark:bg-gray-800">
+                {showDetails && <div className="rounded-2xl bg-gray-100 dark:bg-gray-800">
                   <button type="button" onClick={() => setAmountOpen(o => !o)} aria-expanded={amountOpen}
                     className="flex w-full items-center justify-between px-4 py-3 text-left">
                     <span className="text-sm text-gray-600 dark:text-gray-300">Amount</span>
@@ -314,10 +337,10 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                       <PortionPicker quantity={quantity} setQuantity={changeQuantity} unit={unit} setUnit={changeUnit} />
                     </div>
                   )}
-                </div>
+                </div>}
 
                 {/* 3. Which meal (pre-set from the time of day) */}
-                {tracking && (
+                {tracking && showDetails && (
                   <div className="grid grid-cols-4 gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800" role="radiogroup" aria-label="Meal">
                     {MEALS.map(m => {
                       const Icon = MEAL_ICONS[m.key];
@@ -389,7 +412,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                 )}
 
                 {/* Action bar: stays at the bottom of the sheet */}
-                <div className="sticky bottom-0 -mx-4 mt-auto border-t border-gray-200 bg-gray-50/95 px-4 pb-1 pt-3 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 sm:-mx-6 sm:px-6">
+                {showDetails && <div className="sticky bottom-0 -mx-4 mt-auto border-t border-gray-200 bg-gray-50/95 px-4 pb-1 pt-3 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 sm:-mx-6 sm:px-6">
                     {pickValid ? (
                       <div className="space-y-2">
                         <p className="truncate text-sm text-gray-700 dark:text-gray-200">
@@ -446,7 +469,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                         )}
                       </div>
                     )}
-                </div>
+                </div>}
             </div>
         </FadeScale>
     )

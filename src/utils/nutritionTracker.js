@@ -309,3 +309,13 @@ export async function refreshTrackerState({ setHistory, setTodayData }) {
   setTodayData?.(computeSummary(all.filter(e => e.date === getTodayDate())));
   return all;
 }
+
+// Days in a row with something logged, ending today (or yesterday, if today is still empty).
+export function streakOf(history) {
+  const days = new Set(history.map((e) => e.date))
+  const d = new Date()
+  if (!days.has(formatDate(d))) d.setDate(d.getDate() - 1)
+  let n = 0
+  while (days.has(formatDate(d))) { n += 1; d.setDate(d.getDate() - 1) }
+  return n
+}

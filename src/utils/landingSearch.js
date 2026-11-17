@@ -1,8 +1,7 @@
 // What the home page shows on arrival.
 // - A marketing link can set it: /?q=paneer%20tikka&qty=2&unit=plate
 //   (also accepts ?search= / ?dish=). That runs a real (server-cached) search.
-// - Otherwise we show a built-in example (4 eggs) instantly, with no AI call,
-//   to show off high-protein results.
+// - Otherwise the page starts empty (returns null).
 import { UNITS } from "./units.js";
 
 // Typical values for large eggs (~50 g each).
@@ -39,7 +38,7 @@ const clampQty = (v) => {
 export function landingSearchFrom(search) {
   const p = new URLSearchParams(search);
   const q = (p.get("q") || p.get("search") || p.get("dish") || "").trim().slice(0, 80);
-  if (!q) return { ...DEFAULT_EXAMPLE, example: true };
+  if (!q) return null;
   const unitParam = (p.get("unit") || "").toLowerCase();
   const unit = UNITS.some((u) => u.key === unitParam) ? unitParam : "bowl";
   return {
