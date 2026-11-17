@@ -2,6 +2,7 @@
 // per-IP daily limits, a global daily cap, and a shared answer cache.
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { getStore } from '@netlify/blobs';
+import { fuzzyFilter } from '../../src/utils/fuzzy.js';
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'nutricheck-f7e71';
 const FIREBASE_JWKS = createRemoteJWKSet(
@@ -128,14 +129,8 @@ export const catalogSearch = async (query, limit = 8) => {
     const { blobs } = await s.list();
     keyCache = { at: Date.now(), keys: blobs.map((b) => b.key) };
   }
-  const words = dishSlug(query).split('-').filter(Boolean);
-  if (!words.length) return [];
-  // Every typed word must appear; names starting with the query rank first.
-  const q = words.join('-');
-  const hits = keyCache.keys
-    .filter((k) => words.every((w) => k.includes(w)))
-    .sort((a, b) => (b.startsWith(q) - a.startsWith(q)) || a.length - b.length)
-    .slice(0, limit);
+  // Forgiving match on the dish names (typos, doubled letters, partial words).
+  const hits = fuzzyFilter(query, keyCache.keys, (k) => k.replace(/-/g, ' ')).slice(0, limit);
   const items = await Promise.all(hits.map((k) => s.get(k, { type: 'json' }).catch(() => null)));
   return items.filter(Boolean);
 };

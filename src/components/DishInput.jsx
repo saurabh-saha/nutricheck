@@ -5,6 +5,7 @@ import { MEALS, defaultMealForNow } from "../utils/nutritionTracker"
 import { UNITS, unitInfo, cleanDishLabel, isMeasure, parseFoodQuery, inferUnit, nutritionFor } from "../utils/units"
 import { favoriteKey } from "../utils/favorites"
 import { DEFAULT_EXAMPLE } from "../utils/landingSearch"
+import { fuzzyFilter } from "../utils/fuzzy"
 import FadeScale from "./ui/FadeScale";
 import { toast } from "../hooks/use-toast";
 import DishComposer, { MIN_QUERY } from "./DishComposer";
@@ -268,7 +269,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
         }
         const q = parseFoodQuery(dish).food.trim().toLowerCase();
         if (q.length >= MIN_QUERY) {
-            const local = DEFAULT_EXAMPLE.results.filter(r => r.name.toLowerCase().includes(q) || q.split(/\s+/).every(w => r.name.toLowerCase().includes(w.replace(/s$/, ""))));
+            const local = fuzzyFilter(q, DEFAULT_EXAMPLE.results, r => r.name);
             for (const item of [...catalog, ...local]) add("Known dishes", item);
         }
         return out;

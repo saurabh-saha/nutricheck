@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera, Plus, Sparkles, Star, X, History } from "lucide-react";
+import { fuzzyScore } from "../utils/fuzzy";
 
 const MAX_PHOTOS = 3;
 const MAX_SUGGESTIONS = 6;
@@ -47,7 +48,10 @@ export default function DishComposer({
 
   const query = value.trim().toLowerCase();
   const matches = useMemo(() => {
-    const list = query ? suggestions.filter((s) => s.label.toLowerCase().includes(query)) : suggestions;
+    // Known dishes arrive already matched; your own foods are matched here, forgivingly.
+    const list = query
+      ? suggestions.filter((s) => s.group === "Known dishes" || fuzzyScore(query, s.item?.name ?? s.label) !== null)
+      : suggestions;
     return list.slice(0, MAX_SUGGESTIONS);
   }, [suggestions, query]);
   // Rows: matches, then "Search with AI" when something is typed.
