@@ -55,8 +55,10 @@ const portionData = (item) => ({
  * - Results carry per-100 g data, so changing the amount never needs a new search.
  * - tracking=false (home page): tapping a result shows its nutrition right away.
  * - tracking=true (Add food sheet): tapping a result fills the form; then Add.
+ * - compact (home page): amount, meal and the action bar appear only once
+ *   there's something to look up or add.
  */
-export default function DishInput({ onSelect, onClose, selectedDate, tracking = false, quickAdd = null, initial = null, onPreview = null }) {
+export default function DishInput({ onSelect, onClose, selectedDate, tracking = false, quickAdd = null, initial = null, onPreview = null, compact = false }) {
     // `initial` (home page): { dish, quantity, unit, photoUrl, results, note, autoSearch }
     const [dish, setDish] = useState(initial?.dish ?? "");
     const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
@@ -251,6 +253,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
     };
 
     const portion = unitWord(quantity, unit);
+    const showDetails = !compact || Boolean(dish.trim()) || photos.length > 0 || Boolean(picked) || isLoading;
 
     // Dropdown: your recent foods, then dishes the app already knows.
     const suggestions = (() => {
@@ -294,11 +297,12 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                     onSubmit={handleSearch}
                     suggestions={suggestions}
                     onPickSuggestion={pickFromDropdown}
+                    placeholder={compact ? "Try “2 rotis” or “egg bhurji”" : undefined}
                     onToggleFavorite={tracking && quickAdd ? (s) => quickAdd.onToggleFavorite(s.source, s.fav) : undefined}
                 />
 
                 {/* 2. Amount: worked out for you; edit it in place */}
-                <div className="rounded-2xl bg-gray-100 dark:bg-gray-800">
+                {showDetails && <div className="rounded-2xl bg-gray-100 dark:bg-gray-800">
                   <button type="button" onClick={() => setAmountOpen(o => !o)} aria-expanded={amountOpen}
                     className="flex w-full items-center justify-between px-4 py-3 text-left">
                     <span className="text-sm text-gray-600 dark:text-gray-300">Amount</span>
@@ -314,10 +318,10 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                       <PortionPicker quantity={quantity} setQuantity={changeQuantity} unit={unit} setUnit={changeUnit} />
                     </div>
                   )}
-                </div>
+                </div>}
 
                 {/* 3. Which meal (pre-set from the time of day) */}
-                {tracking && (
+                {tracking && showDetails && (
                   <div className="grid grid-cols-4 gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800" role="radiogroup" aria-label="Meal">
                     {MEALS.map(m => {
                       const Icon = MEAL_ICONS[m.key];
@@ -389,7 +393,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                 )}
 
                 {/* Action bar: stays at the bottom of the sheet */}
-                <div className="sticky bottom-0 -mx-4 mt-auto border-t border-gray-200 bg-gray-50/95 px-4 pb-1 pt-3 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 sm:-mx-6 sm:px-6">
+                {showDetails && <div className="sticky bottom-0 -mx-4 mt-auto border-t border-gray-200 bg-gray-50/95 px-4 pb-1 pt-3 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 sm:-mx-6 sm:px-6">
                     {pickValid ? (
                       <div className="space-y-2">
                         <p className="truncate text-sm text-gray-700 dark:text-gray-200">
@@ -446,7 +450,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                         )}
                       </div>
                     )}
-                </div>
+                </div>}
             </div>
         </FadeScale>
     )
