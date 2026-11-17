@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react"
-import { Sunrise, Sun, Cookie, Moon, Check, RotateCcw, Plus, ChevronDown, Pencil } from "lucide-react"
+import { Sunrise, Sun, Cookie, Moon, Check, RotateCcw, Plus, ChevronUp } from "lucide-react"
 import { getDishSuggestionsFromGemini } from '../utils/gemini.jsx'
 import { MEALS, defaultMealForNow } from "../utils/nutritionTracker"
 import { UNITS, unitInfo, cleanDishLabel, isMeasure, parseFoodQuery, inferUnit, nutritionFor } from "../utils/units"
@@ -244,24 +244,24 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                     onToggleFavorite={tracking && quickAdd ? (s) => quickAdd.onToggleFavorite(s.source, s.fav) : undefined}
                 />
 
-                {/* 2. Amount: worked out for you; open only to change it */}
-                {amountOpen ? (
-                  <div className="space-y-2">
-                    <PortionPicker quantity={quantity} setQuantity={changeQuantity} unit={unit} setUnit={changeUnit} />
-                    <button type="button" onClick={() => setAmountOpen(false)}
-                      className="text-sm font-medium text-blue-600 dark:text-blue-400">Done</button>
-                  </div>
-                ) : (
-                  <button type="button" onClick={() => setAmountOpen(true)}
-                    className="flex w-full items-center justify-between rounded-xl bg-gray-100 px-4 py-3 text-left dark:bg-gray-800">
-                    <span className="text-sm text-gray-600 dark:text-gray-300">
-                      Amount <b className="ml-1 text-base text-gray-900 dark:text-white">{portion}</b>
-                    </span>
-                    <span className="flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400">
-                      <Pencil size={14} /> Change <ChevronDown size={14} />
+                {/* 2. Amount: worked out for you; edit it in place */}
+                <div className="rounded-2xl bg-gray-100 dark:bg-gray-800">
+                  <button type="button" onClick={() => setAmountOpen(o => !o)} aria-expanded={amountOpen}
+                    className="flex w-full items-center justify-between px-4 py-3 text-left">
+                    <span className="text-sm text-gray-600 dark:text-gray-300">Amount</span>
+                    <span className="flex items-center gap-2">
+                      <b className="text-base text-gray-900 dark:text-white">{portion}</b>
+                      {amountOpen
+                        ? <ChevronUp size={18} className="text-gray-400" />
+                        : <span className="text-sm font-medium text-blue-600 dark:text-blue-400">Change</span>}
                     </span>
                   </button>
-                )}
+                  {amountOpen && (
+                    <div className="px-3 pb-3">
+                      <PortionPicker quantity={quantity} setQuantity={changeQuantity} unit={unit} setUnit={changeUnit} />
+                    </div>
+                  )}
+                </div>
 
                 {/* 3. Which meal (pre-set from the time of day) */}
                 {tracking && (
