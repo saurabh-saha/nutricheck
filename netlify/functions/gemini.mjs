@@ -2,8 +2,8 @@
 // and never reaches the browser. Prompts are built here, so this endpoint
 // can't be used as a general-purpose Gemini proxy.
 import { extractJsonFromText } from '../../src/utils/extractJson.js';
-import { describeServing } from '../../src/utils/units.js';
-import { checkOrigin, verifyFirebaseUser, consumeQuota, readCache, writeCache } from '../lib/guard.mjs';
+import { describeServing, cleanPortionData } from '../../src/utils/units.js';
+import { checkOrigin, verifyFirebaseUser, consumeQuota, readCache, writeCache, catalogPut } from '../lib/guard.mjs';
 
 const MODELS = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest'];
 const DEADLINE_MS = 9000; // stay under Netlify's synchronous function limit
@@ -31,15 +31,20 @@ Rules:
     : 'Infer the most likely dish from the photo(s) and use it as the first suggestion.'}
 2. The second and third suggestions should be close variants (different styles, toppings, ingredients).
 3. Names are dish names only. Never put the quantity or unit in the name (write "Masala dosa", not "1 piece of Masala dosa").
-4. Nutrition is for the FULL serving described above (or what is visible in the image), not per 100 g.
+4. "nutrition" is for the FULL serving described above (or what is visible in the image).
+5. "per100g" is the same dish per 100 g (or 100 ml for drinks).
+6. "unitGrams" is the typical weight in grams of ONE bowl (~250 ml katori), ONE piece, ONE plate and ONE cup (~240 ml) of this dish, as eaten in India. Give your best estimate for every unit, even unusual ones.
+7. "defaultUnit" is the most natural way to count this dish: "piece" (eggs, roti, idli, fruit), "bowl" (dal, curry, rice), "plate" (biryani, thali), or "cup" (drinks).
 
 For each suggestion, include:
 - name (string)
 - image (string): one of these file names ${JSON.stringify(IMAGES)}
-- nutrition (object in this format):
+- nutrition and per100g (objects in this format):
 ${jsonTemplate}
+- unitGrams: {"bowl": int, "piece": int, "plate": int, "cup": int}
+- defaultUnit: "piece" | "bowl" | "plate" | "cup"
 
-Output: strictly a JSON array of 3 objects: [{"name": "...", "image": "...", "nutrition": {...}}, ...]
+Output: strictly a JSON array of 3 objects: [{"name": "...", "image": "...", "nutrition": {...}, "per100g": {...}, "unitGrams": {...}, "defaultUnit": "..."}, ...]
 All nutrition values must be integers. Use kcal for calories, grams (g) for all other values. JSON only, no extra text.`;
 
 const nutritionPrompt = (serving) => `
@@ -105,7 +110,11 @@ export default async (req, context) => {
   }
 
   // Same text lookup -> same answer for everyone, and no extra Gemini call.
-  const cacheParts = images.length ? null : ['v2', kind, dish, quantity, unit]; // bump 'v2' when prompts change
+  // Suggestions carry per-100 g data, so they're cached by dish alone and the
+  // app rescales them for any amount. Bump the version when prompts change.
+  const cacheParts = images.length ? null
+    : kind === 'suggestions' ? ['v3', kind, dish.toLowerCase()]
+    : ['v3', kind, dish, quantity, unit];
   if (cacheParts) {
     try {
       const cached = await readCache(cacheParts);
@@ -132,8 +141,18 @@ export default async (req, context) => {
       const text = await callGemini(apiKey, model, parts, model === MODELS[0] ? Math.min(6000, remaining) : remaining);
       const parsed = extractJsonFromText(text);
       if (parsed) {
-        if (cacheParts) await writeCache(cacheParts, parsed).catch((err) => console.warn('Cache write failed:', err.message));
-        return json(200, { result: parsed });
+        let result = parsed;
+        if (kind === 'suggestions' && Array.isArray(parsed)) {
+          // Record the serving these numbers are for, keep only valid portion data,
+          // and add the dishes to the shared catalogue.
+          const baseQuantity = Number(quantity) || 1;
+          result = parsed.map(({ per100g, unitGrams, defaultUnit, ...rest }) => ({
+            ...rest, baseQuantity, baseUnit: unit, ...cleanPortionData({ per100g, unitGrams, defaultUnit }),
+          }));
+          await catalogPut(result).catch((err) => console.warn('Catalogue write failed:', err.message));
+        }
+        if (cacheParts) await writeCache(cacheParts, result).catch((err) => console.warn('Cache write failed:', err.message));
+        return json(200, { result });
       }
       errors.push(`${model}: unparseable response`);
     } catch (err) {

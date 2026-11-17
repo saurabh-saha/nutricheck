@@ -124,12 +124,14 @@ export default function DishComposer({
             onMouseDown={(e) => e.preventDefault()}
             className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
           >
-            {!query && (
-              <li className="flex items-center gap-1.5 px-4 pb-1 pt-2.5 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                <History size={12} /> Recent
-              </li>
-            )}
-            {rows.map((row, i) => row.type === "ai" ? (
+            {rows.map((row, i) => [
+              // Section header when the group changes ("Recent", "Known dishes").
+              row.type === "item" && row.item.group && row.item.group !== rows[i - 1]?.item?.group && (
+                <li key={`h-${row.item.group}`} className="flex items-center gap-1.5 px-4 pb-1 pt-2.5 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  {row.item.group === "Recent" ? <History size={12} /> : <Sparkles size={12} />} {row.item.group}
+                </li>
+              ),
+              row.type === "ai" ? (
               <li key="ai" role="option" aria-selected={active === i}>
                 <button type="button" onClick={() => choose(row)}
                   className={`flex w-full items-center gap-3 px-4 py-3 text-left text-blue-600 dark:text-blue-400 ${active === i ? "bg-blue-50 dark:bg-blue-900/30" : ""} ${matches.length ? "border-t border-gray-100 dark:border-gray-700" : ""}`}>
@@ -145,10 +147,10 @@ export default function DishComposer({
                     : <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gray-100 text-gray-400 dark:bg-gray-700"><History size={16} /></span>}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-gray-900 dark:text-gray-100">{row.item.label}</span>
-                    <span className="block text-xs text-gray-500 dark:text-gray-400">{row.item.kcal} kcal · tap to use again</span>
+                    <span className="block text-xs text-gray-500 dark:text-gray-400">{row.item.sub ?? `${row.item.kcal} kcal`}</span>
                   </span>
                 </button>
-                {onToggleFavorite && (
+                {onToggleFavorite && row.item.source && (
                   <button type="button" onClick={() => onToggleFavorite(row.item)}
                     aria-label={row.item.fav ? `Remove ${row.item.label} from favourites` : `Add ${row.item.label} to favourites`}
                     aria-pressed={row.item.fav}
@@ -157,7 +159,7 @@ export default function DishComposer({
                   </button>
                 )}
               </li>
-            ))}
+            )])}
           </ul>
         )}
       </div>

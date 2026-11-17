@@ -125,8 +125,9 @@ export async function getAllEntries() {
 }
 
 // Save one entry. `dish` is the full label, e.g. "1 bowl of dal".
-export async function logEntry({ dish, nutrition, date, meal, imageUrl = null }) {
+export async function logEntry({ dish, nutrition, date, meal, imageUrl = null, extras = {} }) {
   const entry = {
+    ...extras, // per100g / unitGrams / defaultUnit: lets recents be rescaled later
     date: date || getTodayDate(),
     dish,
     meal: meal || defaultMealForNow(),
@@ -171,7 +172,7 @@ export function getRecentDishes(entries, limit = 8) {
     const key = (e.dish || "").trim().toLowerCase();
     if (!key || seen.has(key) || !e.nutrition) continue;
     seen.add(key);
-    recent.push({ dish: e.dish, nutrition: e.nutrition, imageUrl: e.imageUrl || null });
+    recent.push({ dish: e.dish, nutrition: e.nutrition, imageUrl: e.imageUrl || null, per100g: e.per100g, unitGrams: e.unitGrams, defaultUnit: e.defaultUnit });
     if (recent.length >= limit) break;
   }
   return recent;
@@ -268,7 +269,7 @@ export async function addRecipeWithNormalizedNutrition(dish, quantity, unit, nut
 }
 
 export async function handleAddEntry({
-  dish, quantity, unit, photos = [], thumb = null, nutrition, selectedDate, meal, setHistory, setTodayData, onSuccess, onError
+  dish, quantity, unit, photos = [], thumb = null, extras = {}, nutrition, selectedDate, meal, setHistory, setTodayData, onSuccess, onError
 }) {
   if (!dish.trim() || !nutrition) return;
 
@@ -280,7 +281,7 @@ export async function handleAddEntry({
   try {
     // Small private thumbnail stored with the entry (no third-party upload).
     imageUrl = photos[0] ? await makeThumbnail(photos[0]) : thumb;
-    await logEntry({ dish: fullDish, nutrition, date: selectedDate, meal, imageUrl });
+    await logEntry({ dish: fullDish, nutrition, date: selectedDate, meal, imageUrl, extras });
     await refreshTrackerState({ setHistory, setTodayData });
     onSuccess?.();
   } catch (err) {

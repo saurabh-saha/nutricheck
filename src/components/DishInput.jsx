@@ -1,37 +1,18 @@
 import { useState, useRef, useEffect } from "react"
-import { Sunrise, Sun, Cookie, Moon, Check, RotateCcw, Plus } from "lucide-react"
+import { Sunrise, Sun, Cookie, Moon, Check, RotateCcw, Plus, ChevronDown, Pencil } from "lucide-react"
 import { getDishSuggestionsFromGemini } from '../utils/gemini.jsx'
 import { MEALS, defaultMealForNow } from "../utils/nutritionTracker"
-import { UNITS, unitInfo, cleanDishLabel, isMeasure } from "../utils/units"
+import { UNITS, unitInfo, cleanDishLabel, isMeasure, parseFoodQuery, inferUnit, nutritionFor } from "../utils/units"
 import { favoriteKey } from "../utils/favorites"
+import { DEFAULT_EXAMPLE } from "../utils/landingSearch"
 import FadeScale from "./ui/FadeScale";
 import DishComposer from "./DishComposer";
 import PortionPicker from "./PortionPicker";
 
 const MEAL_ICONS = { breakfast: Sunrise, lunch: Sun, snack: Cookie, dinner: Moon };
+const UNIT_KEYS = new Set(UNITS.map(u => u.key));
 
 const photosKeyOf = (photos) => photos.map(f => `${f.name}:${f.size}:${f.lastModified}`).join("|");
-
-// "4 piece of egg white" -> { quantity: 4, unit: "piece", name: "egg white" }
-const parseLabel = (label) => {
-  const clean = cleanDishLabel(label);
-  const m = clean.match(/^(\d+(?:\.\d+)?)\s+(\S+)\s+of\s+(.+)$/i);
-  if (m && UNITS.some(u => u.key === m[2].toLowerCase())) {
-    return { quantity: Number(m[1]), unit: m[2].toLowerCase(), name: m[3].trim() };
-  }
-  return { quantity: 1, unit: null, name: clean };
-};
-
-// Nutrition for a different amount of the same food.
-const scaleNutrition = (nutrition, ratio) => {
-  if (!nutrition || ratio === 1) return nutrition;
-  const out = {};
-  for (const [k, v] of Object.entries(nutrition)) {
-    const n = Number(v);
-    out[k] = Number.isFinite(n) ? Math.round(n * ratio) : v;
-  }
-  return out;
-};
 
 const unitWord = (quantity, unit) => {
   const info = unitInfo(unit);
@@ -40,27 +21,52 @@ const unitWord = (quantity, unit) => {
   return `${quantity} ${info.label.toLowerCase()}${quantity > 1 ? "s" : ""}`;
 };
 
+// A logged entry ("4 piece of egg white") as something we can rescale.
+const fromEntry = (entry) => {
+  const parsed = parseFoodQuery(cleanDishLabel(entry.dish));
+  return {
+    name: parsed.food,
+    baseQuantity: parsed.quantity || 1,
+    baseUnit: parsed.unit && UNIT_KEYS.has(parsed.unit) ? parsed.unit : null,
+    nutrition: entry.nutrition,
+    per100g: entry.per100g,
+    unitGrams: entry.unitGrams,
+    defaultUnit: entry.defaultUnit,
+    imageUrl: entry.imageUrl || null,
+  };
+};
+
+const portionData = (item) => ({
+  ...(item.per100g ? { per100g: item.per100g } : {}),
+  ...(item.unitGrams ? { unitGrams: item.unitGrams } : {}),
+  ...(item.defaultUnit ? { defaultUnit: item.defaultUnit } : {}),
+});
+
 /**
  * Find a food and (when tracking) add it.
- * - tracking=false (Calorie Finder): tapping a suggestion shows its nutrition right away.
- * - tracking=true (Add food sheet): tapping a suggestion or a Recent fills the form;
- *   the user can tweak it and then tap Add, or search again.
+ * - The amount is worked out from what you type ("2 eggs", "200g paneer") or the
+ *   food itself (eggs -> pieces, tea -> cups), and stays tucked away unless changed.
+ * - Results carry per-100 g data, so changing the amount never needs a new search.
+ * - tracking=false (home page): tapping a result shows its nutrition right away.
+ * - tracking=true (Add food sheet): tapping a result fills the form; then Add.
  */
 export default function DishInput({ onSelect, onClose, selectedDate, tracking = false, quickAdd = null, initial = null }) {
     // `initial` (home page): { dish, quantity, unit, photoUrl, results, note, autoSearch }
     const [dish, setDish] = useState(initial?.dish ?? "");
     const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
     const [unit, setUnit] = useState(initial?.unit ?? "bowl");
+    const [amountTouched, setAmountTouched] = useState(Boolean(initial?.unit));
+    const [amountOpen, setAmountOpen] = useState(false);
     const [photos, setPhotos] = useState([]);
     const [note, setNote] = useState(initial?.note ?? "");
     const [meal, setMeal] = useState(defaultMealForNow);
     const [isLoading, setIsLoading] = useState(false);
     const [result, setResult] = useState(initial?.results ?? null);
     const [searchError, setSearchError] = useState("");
-    const [picked, setPicked] = useState(null); // { key, name, quantity, unit, nutrition, photosKey, imageUrl }
+    const [picked, setPicked] = useState(null); // { key, item, photosKey }
+    const [catalog, setCatalog] = useState([]);
     const [closing, setClosing] = useState(false);
     const textInputRef = useRef(null);
-    const lastSearchKeyRef = useRef(null);
     const latestRequestRef = useRef(0);
 
     useEffect(() => {
@@ -79,19 +85,51 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
       return () => { cancelled = true; };
     }, []);
 
+    // Dishes the app already knows (shared catalogue), for the dropdown. No AI involved.
+    useEffect(() => {
+      const q = parseFoodQuery(dish).food.trim();
+      if (q.length < 2) { setCatalog([]); return; }
+      const ctrl = new AbortController();
+      const t = setTimeout(() => {
+        fetch(`/.netlify/functions/foods?q=${encodeURIComponent(q)}`, { signal: ctrl.signal })
+          .then(r => (r.ok ? r.json() : { items: [] }))
+          .then(d => setCatalog(Array.isArray(d.items) ? d.items : []))
+          .catch(() => {});
+      }, 250);
+      return () => { clearTimeout(t); ctrl.abort(); };
+    }, [dish]);
+
+    // Typing sets the amount until the user changes it themselves:
+    // "2 eggs" -> 2 pieces, "200g paneer" -> 200 g, "tea" -> cup.
+    const changeDish = (text) => {
+        setDish(text);
+        if (amountTouched) return;
+        const p = parseFoodQuery(text);
+        if (p.quantity) setQuantity(p.quantity);
+        const u = p.unit || inferUnit(p.food);
+        if (u) setUnit(u);
+    };
+    const changeQuantity = (q) => { setAmountTouched(true); setQuantity(q); };
+    const changeUnit = (u) => { setAmountTouched(true); setUnit(u); };
+
     const photosKey = photosKeyOf(photos);
-    const pickValid = Boolean(picked)
-      && dish.trim().toLowerCase() === picked.name.toLowerCase()
-      && unit === picked.unit
+    const pickedNutrition = picked ? nutritionFor(picked.item, quantity, unit) : null;
+    const pickValid = Boolean(picked && pickedNutrition)
+      && dish.trim().toLowerCase() === picked.item.name.toLowerCase()
       && photosKey === picked.photosKey;
-    const pickedNutrition = pickValid ? scaleNutrition(picked.nutrition, quantity / picked.quantity) : null;
     const canSearch = Boolean(dish.trim() || photos.length);
 
-    const handleSearch = async ({ force = false } = {}) => {
+    const handleSearch = async () => {
         if (!canSearch) return;
-        const searchKey = `${dish.trim().toLowerCase()}|${quantity}|${unit}|${photosKey}`;
-        if (!force && searchKey === lastSearchKeyRef.current && result) return;
-        lastSearchKeyRef.current = searchKey;
+        // Use the amount typed into the box ("2 eggs"), and search for the food alone.
+        const p = parseFoodQuery(dish);
+        const food = p.food;
+        const q = p.quantity ?? quantity;
+        const inferred = inferUnit(food);
+        const u = p.unit || (amountTouched ? unit : inferred || unit);
+        if (food !== dish) setDish(food);
+        setQuantity(q);
+        setUnit(u);
 
         const requestId = ++latestRequestRef.current;
         setIsLoading(true);
@@ -100,52 +138,59 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
         setNote("");
         let suggestions = [];
         try {
-            suggestions = await getDishSuggestionsFromGemini(dish, quantity, unit, photos);
+            suggestions = await getDishSuggestionsFromGemini(food, q, u, photos);
         } catch (err) {
             if (requestId === latestRequestRef.current) setSearchError(err.message || "Search failed. Please try again.");
         }
         if (requestId !== latestRequestRef.current) return; // a newer search superseded this one
         setIsLoading(false);
-        if (Array.isArray(suggestions) && suggestions.length > 0) setResult(suggestions);
-        else lastSearchKeyRef.current = null; // allow retrying after a failure
+        if (!Array.isArray(suggestions) || !suggestions.length) return;
+        // Older cached answers don't say which serving they're for: it's the one we asked.
+        const items = suggestions.map(s => ({ baseQuantity: q, baseUnit: u, ...s }));
+        setResult(items);
+        // Nothing told us the unit: use the AI's natural unit for this dish.
+        const aiUnit = items[0]?.defaultUnit;
+        if (!amountTouched && !p.unit && !inferred && UNIT_KEYS.has(aiUnit)) setUnit(aiUnit);
     };
 
     // A dish from a marketing link (?q=...) is searched straight away.
     useEffect(() => {
-      if (initial?.autoSearch) handleSearch({ force: true });
+      if (initial?.autoSearch) handleSearch();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const pickSuggestion = (item, idx) => {
+    // Choose an item (search result, recent or known dish).
+    const choose = (item, key, { adoptAmount = false } = {}) => {
+        let q = quantity;
+        let u = unit;
+        if (adoptAmount && item.baseUnit) { q = item.baseQuantity; u = item.baseUnit; }
+        else if (!amountTouched) u = item.defaultUnit || inferUnit(item.name) || unit;
         if (!tracking) {
-            onSelect?.(item.name, quantity, unit, item.nutrition, photos);
+            onSelect?.(item.name, q, u, nutritionFor(item, q, u) || item.nutrition, photos);
             return;
         }
         setDish(item.name);
-        setPicked({ key: `s${idx}`, name: item.name, quantity, unit, nutrition: item.nutrition, photosKey, imageUrl: null });
+        setQuantity(q);
+        setUnit(u);
+        setPicked({ key, item, photosKey });
     };
 
-    const pickRecent = (item) => {
-        const parsed = parseLabel(item.dish);
-        const u = parsed.unit || unit;
-        setDish(parsed.name);
-        setQuantity(parsed.quantity);
-        setUnit(u);
-        setPhotos([]);
-        setResult(null);
-        setSearchError("");
-        setPicked({
-          key: favoriteKey(cleanDishLabel(item.dish)),
-          name: parsed.name, quantity: parsed.quantity, unit: u,
-          nutrition: item.nutrition, photosKey: "", imageUrl: item.imageUrl || null,
-        });
+    const pickFromDropdown = (s) => {
+        if (s.group === "Recent") {
+            setPhotos([]);
+            setResult(null);
+            setSearchError("");
+            choose(s.item, s.key, { adoptAmount: true });
+        } else {
+            choose(s.item, s.key);
+        }
     };
 
     const handleAdd = () => {
         if (!pickValid) return;
         setClosing(true);
         setTimeout(() => {
-            onSelect?.(picked.name, quantity, unit, pickedNutrition, photos, selectedDate, meal, picked.imageUrl);
-            setDish(""); setQuantity(1); setUnit("bowl"); setPhotos([]);
+            onSelect?.(picked.item.name, quantity, unit, pickedNutrition, photos, selectedDate, meal, picked.item.imageUrl || null, portionData(picked.item));
+            setDish(""); setQuantity(1); setUnit("bowl"); setAmountTouched(false); setPhotos([]);
             setResult(null); setPicked(null); setClosing(false);
             onClose?.();
         }, 250);
@@ -153,19 +198,31 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
 
     const portion = unitWord(quantity, unit);
 
-    // Dropdown suggestions: favourites first, then recent foods (deduplicated).
+    // Dropdown: your recent foods, then dishes the app already knows.
     const suggestions = (() => {
-        if (!tracking || !quickAdd) return [];
         const seen = new Set();
         const out = [];
-        for (const [list, fav] of [[quickAdd.favorites || [], true], [quickAdd.recent || [], false]]) {
-            for (const it of list) {
-                const label = cleanDishLabel(it.dish);
-                const key = favoriteKey(label);
-                if (seen.has(key)) continue;
-                seen.add(key);
-                out.push({ key, label, kcal: Math.round(Number(it.nutrition?.calories) || 0), fav, imageUrl: it.imageUrl, source: it });
-            }
+        const add = (group, item, extra = {}) => {
+            const key = favoriteKey(item.name);
+            if (seen.has(key)) return;
+            seen.add(key);
+            const n = nutritionFor(item, item.baseQuantity, item.baseUnit) || item.nutrition || {};
+            const kcal = Math.round(Number(n.calories) || 0);
+            const amount = item.baseUnit ? unitWord(item.baseQuantity, item.baseUnit) : null;
+            out.push({
+              key, group, item, imageUrl: item.imageUrl, ...extra,
+              label: group === "Recent" && amount ? `${item.name} · ${amount}` : item.name,
+              sub: group === "Recent" ? `${kcal} kcal · tap to use again` : `${kcal} kcal${amount ? ` for ${amount}` : ""} · instant, no AI needed`,
+            });
+        };
+        if (tracking && quickAdd) {
+            for (const f of quickAdd.favorites || []) add("Recent", fromEntry(f), { fav: true, source: f });
+            for (const r of quickAdd.recent || []) add("Recent", fromEntry(r), { fav: false, source: r });
+        }
+        const q = parseFoodQuery(dish).food.trim().toLowerCase();
+        if (q.length >= 2) {
+            const local = DEFAULT_EXAMPLE.results.filter(r => r.name.toLowerCase().includes(q) || q.split(/\s+/).every(w => r.name.toLowerCase().includes(w.replace(/s$/, ""))));
+            for (const item of [...catalog, ...local]) add("Known dishes", item);
         }
         return out;
     })();
@@ -177,43 +234,56 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                 <DishComposer
                     inputRef={textInputRef}
                     value={dish}
-                    onChange={setDish}
+                    onChange={changeDish}
                     photos={photos}
                     onPhotos={setPhotos}
-                    onSubmit={() => handleSearch({ force: true })}
+                    onSubmit={handleSearch}
                     suggestions={suggestions}
-                    onPickSuggestion={(s) => pickRecent(s.source)}
+                    onPickSuggestion={pickFromDropdown}
                     onToggleFavorite={tracking && quickAdd ? (s) => quickAdd.onToggleFavorite(s.source, s.fav) : undefined}
                 />
 
-                {/* 2. How much */}
-                <PortionPicker quantity={quantity} setQuantity={setQuantity} unit={unit} setUnit={setUnit} />
+                {/* 2. Amount: worked out for you; open only to change it */}
+                {amountOpen ? (
+                  <div className="space-y-2">
+                    <PortionPicker quantity={quantity} setQuantity={changeQuantity} unit={unit} setUnit={changeUnit} />
+                    <button type="button" onClick={() => setAmountOpen(false)}
+                      className="text-sm font-medium text-blue-600 dark:text-blue-400">Done</button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setAmountOpen(true)}
+                    className="flex w-full items-center justify-between rounded-xl bg-gray-100 px-4 py-3 text-left dark:bg-gray-800">
+                    <span className="text-sm text-gray-600 dark:text-gray-300">
+                      Amount <b className="ml-1 text-base text-gray-900 dark:text-white">{portion}</b>
+                    </span>
+                    <span className="flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400">
+                      <Pencil size={14} /> Change <ChevronDown size={14} />
+                    </span>
+                  </button>
+                )}
 
                 {/* 3. Which meal (pre-set from the time of day) */}
                 {tracking && (
-                  <div className="space-y-2">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Meal</span>
-                    <div className="grid grid-cols-4 gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800" role="radiogroup" aria-label="Meal">
-                      {MEALS.map(m => {
-                        const Icon = MEAL_ICONS[m.key];
-                        const active = meal === m.key;
-                        return (
-                          <button
-                            key={m.key}
-                            type="button"
-                            role="radio"
-                            aria-checked={active}
-                            onClick={() => setMeal(m.key)}
-                            className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition ${active
-                              ? "bg-white text-blue-700 shadow-sm dark:bg-gray-700 dark:text-white"
-                              : "text-gray-600 dark:text-gray-300"}`}
-                          >
-                            <Icon size={14} className={active ? "text-blue-600 dark:text-blue-400" : "text-gray-400"} />
-                            {m.label}
-                          </button>
-                        );
-                      })}
-                    </div>
+                  <div className="grid grid-cols-4 gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800" role="radiogroup" aria-label="Meal">
+                    {MEALS.map(m => {
+                      const Icon = MEAL_ICONS[m.key];
+                      const active = meal === m.key;
+                      return (
+                        <button
+                          key={m.key}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          onClick={() => setMeal(m.key)}
+                          className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition ${active
+                            ? "bg-white text-blue-700 shadow-sm dark:bg-gray-700 dark:text-white"
+                            : "text-gray-600 dark:text-gray-300"}`}
+                        >
+                          <Icon size={14} className={active ? "text-blue-600 dark:text-blue-400" : "text-gray-400"} />
+                          {m.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -227,13 +297,14 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                           ? <p className="rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:bg-blue-900/30 dark:text-blue-100">{note}</p>
                           : <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Pick the closest match</p>}
                         {result.map((item, idx) => {
-                            const selected = pickValid && picked.key === `s${idx}`;
-                            const n = (selected ? pickedNutrition : item.nutrition) || {};
+                            const key = `s${idx}`;
+                            const selected = pickValid && picked.key === key;
+                            const n = nutritionFor(item, quantity, unit);
                             return (
                                 <button
-                                    key={idx}
+                                    key={key}
                                     type="button"
-                                    onClick={() => pickSuggestion(item, idx)}
+                                    onClick={() => choose(item, key)}
                                     aria-pressed={selected}
                                     className={`flex w-full items-center gap-3 rounded-2xl border bg-white p-3 text-left transition active:scale-[0.98] dark:bg-gray-800 ${selected
                                       ? "border-blue-600 ring-2 ring-blue-600"
@@ -242,15 +313,19 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                                     <img src={`/${item.image}`} alt="" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
                                     <span className="min-w-0 flex-1">
                                         <span className="block truncate font-semibold text-gray-900 dark:text-gray-100">{item.name}</span>
-                                        <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">{n.protein ?? 0} g protein</span>
-                                          {portion} · C {n.carbs ?? 0}g · F {n.fat ?? 0}g
-                                        </span>
+                                        {n ? (
+                                          <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">{n.protein ?? 0} g protein</span>
+                                            {portion} · C {n.carbs ?? 0}g · F {n.fat ?? 0}g
+                                          </span>
+                                        ) : (
+                                          <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">Search again for {portion}</span>
+                                        )}
                                     </span>
                                     <span className="shrink-0 text-right">
                                         {selected
                                           ? <Check size={20} className="ml-auto text-blue-600" />
-                                          : <span className="block text-lg font-bold text-gray-900 dark:text-gray-100">{n.calories ?? 0}</span>}
+                                          : <span className="block text-lg font-bold text-gray-900 dark:text-gray-100">{n ? n.calories ?? 0 : "–"}</span>}
                                         <span className="block text-[10px] text-gray-500">{selected ? "selected" : "kcal"}</span>
                                     </span>
                                 </button>
@@ -267,13 +342,13 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                     {pickValid ? (
                       <div className="space-y-2">
                         <p className="truncate text-sm text-gray-700 dark:text-gray-200">
-                          <b>{portion}</b> of {picked.name}
+                          <b>{portion}</b> of {picked.item.name}
                           <span className="text-gray-500 dark:text-gray-400"> · P {pickedNutrition.protein ?? 0}g · C {pickedNutrition.carbs ?? 0}g · F {pickedNutrition.fat ?? 0}g</span>
                         </p>
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            onClick={() => handleSearch({ force: true })}
+                            onClick={handleSearch}
                             disabled={isLoading}
                             className="flex items-center justify-center gap-1.5 rounded-2xl border border-gray-300 px-4 py-3.5 text-sm font-medium text-gray-700 active:scale-[0.98] disabled:opacity-50 dark:border-gray-600 dark:text-gray-200"
                           >
@@ -291,15 +366,17 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                     ) : (
                       <div className="space-y-2">
                         {picked && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400">You changed the details. Search again to update the nutrition.</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {pickedNutrition ? "You changed the details." : `We don't have ${portion} for this yet.`} Search to update the nutrition.
+                          </p>
                         )}
                         <button
                           type="button"
-                          onClick={() => handleSearch({ force: true })}
+                          onClick={handleSearch}
                           disabled={isLoading || !canSearch}
                           className="w-full rounded-2xl bg-blue-600 px-4 py-3.5 text-base font-semibold text-white active:scale-[0.98] disabled:opacity-50"
                         >
-                          {isLoading ? "Finding nutrition…" : `Find nutrition for ${portion}`}
+                          {isLoading ? "Finding nutrition…" : canSearch ? `Find nutrition for ${portion}` : "Type a dish or add a photo"}
                         </button>
                       </div>
                     )}

@@ -53,6 +53,7 @@ const memoryStore = {
     return v === undefined ? null : opts?.type === 'json' ? JSON.parse(v) : v;
   },
   setJSON: async (key, value) => void memory.set(key, JSON.stringify(value)),
+  list: async () => ({ blobs: [...memory.keys()].map((key) => ({ key })) }),
 };
 
 const stores = {};
@@ -102,6 +103,38 @@ const cacheKey = async (parts) => {
   const data = new TextEncoder().encode(JSON.stringify(parts).toLowerCase());
   const hash = await crypto.subtle.digest('SHA-256', data);
   return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
+};
+
+// ---- shared dish catalogue (dishes the AI has already described) ----
+// One blob per dish, keyed by a slug of its name, so searches never need the AI.
+export const dishSlug = (name) =>
+  String(name || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+
+export const catalogPut = async (items) => {
+  const s = store('food-catalog');
+  for (const item of items) {
+    const key = dishSlug(item.name);
+    if (key && item.per100g) await s.setJSON(key, { ...item, savedAt: Date.now() });
+  }
+};
+
+let keyCache = { at: 0, keys: [] };
+export const catalogSearch = async (query, limit = 8) => {
+  const s = store('food-catalog');
+  if (Date.now() - keyCache.at > 60_000) {
+    const { blobs } = await s.list();
+    keyCache = { at: Date.now(), keys: blobs.map((b) => b.key) };
+  }
+  const words = dishSlug(query).split('-').filter(Boolean);
+  if (!words.length) return [];
+  // Every typed word must appear; names starting with the query rank first.
+  const q = words.join('-');
+  const hits = keyCache.keys
+    .filter((k) => words.every((w) => k.includes(w)))
+    .sort((a, b) => (b.startsWith(q) - a.startsWith(q)) || a.length - b.length)
+    .slice(0, limit);
+  const items = await Promise.all(hits.map((k) => s.get(k, { type: 'json' }).catch(() => null)));
+  return items.filter(Boolean);
 };
 
 export const readCache = async (parts) => store('gemini-cache').get(await cacheKey(parts), { type: 'json' });

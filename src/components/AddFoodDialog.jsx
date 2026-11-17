@@ -98,9 +98,9 @@ export default function AddFoodDialog({ history = [], setHistory, setTodayData, 
             tracking
             selectedDate={selectedDate}
             quickAdd={{ favorites, recent, onToggleFavorite: handleToggleFavorite }}
-            onSelect={(dish, quantity, unit, nutrition, photos, date, meal, thumb) => {
+            onSelect={(dish, quantity, unit, nutrition, photos, date, meal, thumb, extras) => {
                 handleAddEntry({
-                  dish, quantity, unit, photos, thumb, nutrition, meal,
+                  dish, quantity, unit, photos, thumb, extras, nutrition, meal,
                   selectedDate: date,
                   setHistory,
                   setTodayData,
