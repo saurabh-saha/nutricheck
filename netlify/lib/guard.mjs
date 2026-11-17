@@ -110,15 +110,17 @@ const cacheKey = async (parts) => {
 export const dishSlug = (name) =>
   String(name || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
 
+let keyCache = { at: 0, keys: [] };
 export const catalogPut = async (items) => {
   const s = store('food-catalog');
   for (const item of items) {
     const key = dishSlug(item.name);
-    if (key && item.per100g) await s.setJSON(key, { ...item, savedAt: Date.now() });
+    if (key && item.per100g) {
+      await s.setJSON(key, { ...item, savedAt: Date.now() });
+      if (!keyCache.keys.includes(key)) keyCache.keys.push(key); // searchable here straight away
+    }
   }
 };
-
-let keyCache = { at: 0, keys: [] };
 export const catalogSearch = async (query, limit = 8) => {
   const s = store('food-catalog');
   if (Date.now() - keyCache.at > 60_000) {
