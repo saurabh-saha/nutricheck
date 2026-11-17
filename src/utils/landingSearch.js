@@ -46,6 +46,7 @@ export function landingSearchFrom(search) {
     dish: q,
     quantity: clampQty(p.get("qty") || p.get("quantity")) ?? 1,
     unit,
+    unitExplicit: UNITS.some((u) => u.key === unitParam), // keep it even if the dish suggests another
     example: false,
     autoSearch: true,
   };

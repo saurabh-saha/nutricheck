@@ -143,9 +143,9 @@ export default function DishComposer({
             ) : (
               <li key={row.item.key} role="option" aria-selected={active === i} className={`flex items-center ${active === i ? "bg-gray-100 dark:bg-gray-700" : ""}`}>
                 <button type="button" onClick={() => choose(row)} className="flex min-w-0 flex-1 items-center gap-3 px-4 py-2.5 text-left">
-                  {row.item.imageUrl?.startsWith("data:")
-                    ? <img src={row.item.imageUrl} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
-                    : <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gray-100 text-gray-400 dark:bg-gray-700"><History size={16} /></span>}
+                  {row.item.imageUrl?.startsWith("data:") || row.item.image
+                    ? <img src={row.item.imageUrl?.startsWith("data:") ? row.item.imageUrl : `/${row.item.image}`} alt="" className="h-9 w-9 shrink-0 rounded-lg bg-white object-cover" />
+                    : <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gray-100 text-gray-400 dark:bg-gray-700">{row.item.group === "Recent" ? <History size={16} /> : <Sparkles size={16} />}</span>}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-gray-900 dark:text-gray-100">{row.item.label}</span>
                     <span className="block text-xs text-gray-500 dark:text-gray-400">{row.item.sub ?? `${row.item.kcal} kcal`}</span>

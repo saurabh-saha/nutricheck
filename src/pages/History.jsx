@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { onAuthStateChanged } from "firebase/auth";
-import { Pencil, Trash2, Check, X, Search, Star } from "lucide-react";
+import { Pencil, Trash2, Check, X, Search, Star, Utensils } from "lucide-react";
 import Layout from "../components/Layout";
 import { auth } from "../utils/firebaseConfig";
 import GuestBanner from "../components/GuestBanner";
@@ -106,10 +106,17 @@ function EntryRow({ entry, onEdit, onDelete, onToggleFavorite, isFavorite, busy 
   const n = entry.nutrition || {};
   return (
     <div className="flex items-center gap-2 p-3">
-      {entry.imageUrl?.startsWith("data:") ? (
-        <img src={entry.imageUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" loading="lazy" />
+      {entry.imageUrl?.startsWith("data:") || entry.image ? (
+        <img
+          src={entry.imageUrl?.startsWith("data:") ? entry.imageUrl : `/${entry.image}`}
+          alt=""
+          className="w-10 h-10 rounded-lg object-cover shrink-0 bg-white"
+          loading="lazy"
+        />
       ) : (
-        <div className="w-10 h-10 rounded bg-gray-200 dark:bg-gray-700 shrink-0" />
+        <div className="grid w-10 h-10 shrink-0 place-items-center rounded-lg bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500" aria-hidden>
+          <Utensils size={18} />
+        </div>
       )}
       <div className="flex-1 min-w-0">
         <div className="font-medium leading-snug line-clamp-2 break-words">{cleanDishLabel(entry.dish)}</div>

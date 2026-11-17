@@ -61,12 +61,13 @@ const store = (name) => {
   if (stores[name]) return stores[name];
   try {
     stores[name] = getStore({ name, consistency: 'strong' });
+    return stores[name];
   } catch (err) {
     if (err?.name !== 'MissingBlobsEnvironmentError') throw err;
-    console.warn(`Netlify Blobs unavailable (${name}); using in-memory store`);
-    stores[name] = memoryStore;
+    // Not cached: try the real storage again on the next request.
+    console.warn(`Netlify Blobs unavailable (${name}); using in-memory store for this request`);
+    return memoryStore;
   }
-  return stores[name];
 };
 
 const today = () => new Date().toISOString().slice(0, 10); // UTC day
@@ -109,15 +110,6 @@ const cacheKey = async (parts) => {
 // One blob per dish, keyed by a slug of its name, so searches never need the AI.
 export const dishSlug = (name) =>
   String(name || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
-
-// Diagnostics: which storage backs a store, and how many keys it has.
-export const storeInfo = async (name) => {
-  const s = store(name);
-  const kind = s === memoryStore ? 'memory' : 'blobs';
-  let keys = null, error = null;
-  try { keys = (await s.list()).blobs.length; } catch (e) { error = e.message; }
-  return { name, kind, keys, error, hasContext: Boolean(globalThis.netlifyBlobsContext || process.env.NETLIFY_BLOBS_CONTEXT) };
-};
 
 let keyCache = { at: 0, keys: [] };
 export const catalogPut = async (items) => {

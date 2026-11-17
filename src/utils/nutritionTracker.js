@@ -172,7 +172,7 @@ export function getRecentDishes(entries, limit = 8) {
     const key = (e.dish || "").trim().toLowerCase();
     if (!key || seen.has(key) || !e.nutrition) continue;
     seen.add(key);
-    recent.push({ dish: e.dish, nutrition: e.nutrition, imageUrl: e.imageUrl || null, per100g: e.per100g, unitGrams: e.unitGrams, defaultUnit: e.defaultUnit });
+    recent.push({ dish: e.dish, nutrition: e.nutrition, imageUrl: e.imageUrl || null, image: e.image, per100g: e.per100g, unitGrams: e.unitGrams, defaultUnit: e.defaultUnit });
     if (recent.length >= limit) break;
   }
   return recent;

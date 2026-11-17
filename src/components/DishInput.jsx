@@ -11,6 +11,8 @@ import DishComposer, { MIN_QUERY } from "./DishComposer";
 import PortionPicker from "./PortionPicker";
 
 const MEAL_ICONS = { breakfast: Sunrise, lunch: Sun, snack: Cookie, dinner: Moon };
+// Shown in turn while the AI works, so the wait feels alive.
+const LOADING_LINES = ["Weighing the ingredients…", "Counting the protein…", "Checking the portion…", "Almost there…"];
 const UNIT_KEYS = new Set(UNITS.map(u => u.key));
 
 const photosKeyOf = (photos) => photos.map(f => `${f.name}:${f.size}:${f.lastModified}`).join("|");
@@ -33,11 +35,13 @@ const fromEntry = (entry) => {
     per100g: entry.per100g,
     unitGrams: entry.unitGrams,
     defaultUnit: entry.defaultUnit,
+    image: entry.image,
     imageUrl: entry.imageUrl || null,
   };
 };
 
 const portionData = (item) => ({
+  ...(item.image ? { image: item.image } : {}), // dish image to show when there's no photo
   ...(item.per100g ? { per100g: item.per100g } : {}),
   ...(item.unitGrams ? { unitGrams: item.unitGrams } : {}),
   ...(item.defaultUnit ? { defaultUnit: item.defaultUnit } : {}),
@@ -56,7 +60,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
     const [dish, setDish] = useState(initial?.dish ?? "");
     const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
     const [unit, setUnit] = useState(initial?.unit ?? "bowl");
-    const [amountTouched, setAmountTouched] = useState(Boolean(initial?.unit));
+    const [amountTouched, setAmountTouched] = useState(Boolean(initial?.unitExplicit));
     const [amountOpen, setAmountOpen] = useState(false);
     const [photos, setPhotos] = useState([]);
     const [note, setNote] = useState(initial?.note ?? "");
@@ -67,6 +71,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
     const [cooldownUntil, setCooldownUntil] = useState(0); // after repeated failures
     const [, setTick] = useState(0);
     const failStreakRef = useRef(0);
+    const [loadingLine, setLoadingLine] = useState(0);
     const [picked, setPicked] = useState(null); // { key, item, photosKey }
     const [catalog, setCatalog] = useState([]);
     const [searchedFor, setSearchedFor] = useState(initial?.results ? { food: (initial.dish || "").toLowerCase(), photos: null } : null);
@@ -110,7 +115,8 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
         setDish(text);
         if (amountTouched) return;
         const p = parseFoodQuery(text);
-        if (p.quantity) setQuantity(p.quantity);
+        // A new dish starts from its own amount ("2 eggs" -> 2), otherwise 1.
+        setQuantity(p.quantity ?? 1);
         const u = p.unit || inferUnit(p.food);
         if (u) setUnit(u);
     };
@@ -125,9 +131,19 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
     const queryLength = parseFoodQuery(dish).food.trim().length;
     const canSearch = queryLength >= MIN_QUERY || photos.length > 0;
     // Results on screen still match the text/photos: the next step is to pick one, not search again.
+    const dishLower = parseFoodQuery(dish).food.trim().toLowerCase();
+    // Results belong to the text that produced them (or a result picked from them).
+    const resultsMatchText = Boolean(Array.isArray(result) && result.length && searchedFor
+      && (dishLower === searchedFor.food || result.some(r => r.name.toLowerCase() === dish.trim().toLowerCase())));
     const resultsFresh = Boolean(Array.isArray(result) && result.length && searchedFor
       && parseFoodQuery(dish).food.trim().toLowerCase() === searchedFor.food
       && (searchedFor.photos === null || photosKey === searchedFor.photos));
+
+    useEffect(() => {
+        if (!isLoading) { setLoadingLine(0); return; }
+        const t = setInterval(() => setLoadingLine(i => Math.min(i + 1, LOADING_LINES.length - 1)), 1400);
+        return () => clearInterval(t);
+    }, [isLoading]);
 
     const cooldownLeft = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
     // Re-render every second while cooling down, for the countdown.
@@ -241,7 +257,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
             const kcal = Math.round(Number(n.calories) || 0);
             const amount = item.baseUnit ? unitWord(item.baseQuantity, item.baseUnit) : null;
             out.push({
-              key, group, item, imageUrl: item.imageUrl, ...extra,
+              key, group, item, imageUrl: item.imageUrl, image: item.image, ...extra,
               label: group === "Recent" && amount ? `${item.name} · ${amount}` : item.name,
               sub: group === "Recent" ? `${kcal} kcal · tap to use again` : `${kcal} kcal${amount ? ` for ${amount}` : ""} · instant, no AI needed`,
             });
@@ -318,7 +334,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                   </div>
                 )}
 
-                {Array.isArray(result) && result.length > 0 && (
+                {resultsMatchText && (
                     <div className="space-y-2">
                         {note
                           ? <p className="rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:bg-blue-900/30 dark:text-blue-100">{note}</p>
@@ -362,9 +378,6 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                                 </button>
                             );
                         })}
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                            AI estimates, not medical advice. Values can vary by recipe and portion.
-                        </p>
                     </div>
                 )}
 
@@ -390,7 +403,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                             onClick={handleAdd}
                             className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-blue-600 px-4 py-3.5 text-base font-semibold text-white active:scale-[0.98]"
                           >
-                            <Plus size={18} /> Add · {pickedNutrition.calories ?? 0} kcal
+                            <Plus size={18} /> Add to {MEALS.find(m => m.key === meal)?.label.toLowerCase() ?? "log"} · {pickedNutrition.calories ?? 0} kcal
                           </button>
                         </div>
                       </div>
@@ -413,10 +426,15 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                           disabled={isLoading || !canSearch || cooldownLeft > 0}
                           className="w-full rounded-2xl bg-blue-600 px-4 py-3.5 text-base font-semibold text-white active:scale-[0.98] disabled:opacity-50"
                         >
-                          {isLoading ? (attempt?.n > 1 ? `Still working… (try ${attempt.n} of ${attempt.max})` : "Finding nutrition…")
+                          {isLoading ? (attempt?.n > 1 ? `Still working… (try ${attempt.n} of ${attempt.max})` : LOADING_LINES[loadingLine])
                             : cooldownLeft > 0 ? `Try again in ${cooldownLeft}s`
-                            : canSearch ? `Find nutrition for ${portion}`
-                            : queryLength > 0 ? `Type at least ${MIN_QUERY} letters` : "Type a dish or add a photo"}
+                            : canSearch ? (
+                              <span className="flex flex-col items-center leading-tight">
+                                <span>{dishLower ? "✨ Show calories & protein" : "📸 Analyse my plate"}</span>
+                                {dishLower && <span className="mt-0.5 max-w-full truncate text-xs font-normal text-blue-100">{portion} · {parseFoodQuery(dish).food.trim()}</span>}
+                              </span>
+                            )
+                            : queryLength > 0 ? "Keep typing…" : "Type a dish or snap a photo"}
                         </button>
                         )}
                       </div>
