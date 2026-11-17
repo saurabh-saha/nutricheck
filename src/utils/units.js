@@ -65,7 +65,7 @@ export function parseFoodQuery(text) {
 const FOOD_UNITS = [
   ["piece", /\b(eggs?|roti|rotis|chapati|chapatis|phulka|paratha|parathas|naan|idli|idlis|dosa|dosas|uttapam|vada|vadas|samosa|samosas|banana|bananas|apple|apples|orange|oranges|mango|biscuits?|cookies?|bread|toast|slices?|sandwich|burger|pizza slice|momos?|ladoo|laddu|gulab jamun|puri|puris|kachori|pakora|cutlet|kebab|tikki|chicken leg|drumstick)\b/i],
   ["cup", /\b(tea|chai|coffee|milk|juice|lassi|buttermilk|chaas|smoothie|shake|milkshake|coke|soda|water|kombucha|latte|cappuccino|espresso)\b/i],
-  ["plate", /\b(biryani|pulao|thali|pasta|noodles|fried rice|chole bhature|pav bhaji|meal|salad bowl|maggi)\b/i],
+  ["plate", /\b(biryani|biriyani|briyani|biriani|beryani|pulao|thali|pasta|noodles|fried rice|chole bhature|pav bhaji|meal|salad bowl|maggi)\b/i],
   ["bowl", /\b(dal|daal|rice|curry|sabzi|sabji|poha|upma|oats|porridge|khichdi|soup|rajma|chole|chana|sambar|rasam|kadhi|raita|curd|dahi|yogurt|cereal|muesli|salad|paneer butter masala)\b/i],
 ];
 export function inferUnit(food) {

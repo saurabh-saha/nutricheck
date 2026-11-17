@@ -65,6 +65,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
     const [searchError, setSearchError] = useState("");
     const [picked, setPicked] = useState(null); // { key, item, photosKey }
     const [catalog, setCatalog] = useState([]);
+    const [searchedFor, setSearchedFor] = useState(initial?.results ? { food: (initial.dish || "").toLowerCase(), photos: null } : null);
     const [closing, setClosing] = useState(false);
     const textInputRef = useRef(null);
     const latestRequestRef = useRef(0);
@@ -119,6 +120,10 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
       && photosKey === picked.photosKey;
     const queryLength = parseFoodQuery(dish).food.trim().length;
     const canSearch = queryLength >= MIN_QUERY || photos.length > 0;
+    // Results on screen still match the text/photos: the next step is to pick one, not search again.
+    const resultsFresh = Boolean(Array.isArray(result) && result.length && searchedFor
+      && parseFoodQuery(dish).food.trim().toLowerCase() === searchedFor.food
+      && (searchedFor.photos === null || photosKey === searchedFor.photos));
 
     const handleSearch = async () => {
         if (!canSearch) return;
@@ -149,6 +154,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
         // Older cached answers don't say which serving they're for: it's the one we asked.
         const items = suggestions.map(s => ({ baseQuantity: q, baseUnit: u, ...s }));
         setResult(items);
+        setSearchedFor({ food: food.trim().toLowerCase(), photos: photosKey });
         // Nothing told us the unit: use the AI's natural unit for this dish.
         const aiUnit = items[0]?.defaultUnit;
         if (!amountTouched && !p.unit && !inferred && UNIT_KEYS.has(aiUnit)) setUnit(aiUnit);
@@ -296,7 +302,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                     <div className="space-y-2">
                         {note
                           ? <p className="rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:bg-blue-900/30 dark:text-blue-100">{note}</p>
-                          : <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Pick the closest match</p>}
+                          : <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{tracking ? "Tap the closest match to add it" : "Tap the closest match"}</p>}
                         {result.map((item, idx) => {
                             const key = `s${idx}`;
                             const selected = pickValid && picked.key === key;
@@ -324,10 +330,14 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                                         )}
                                     </span>
                                     <span className="shrink-0 text-right">
-                                        {selected
-                                          ? <Check size={20} className="ml-auto text-blue-600" />
-                                          : <span className="block text-lg font-bold text-gray-900 dark:text-gray-100">{n ? n.calories ?? 0 : "–"}</span>}
-                                        <span className="block text-[10px] text-gray-500">{selected ? "selected" : "kcal"}</span>
+                                        <span className="block text-lg font-bold text-gray-900 dark:text-gray-100">{n ? n.calories ?? 0 : "–"}</span>
+                                        <span className="block text-[10px] text-gray-500">kcal</span>
+                                    </span>
+                                    {/* Radio-style cue: these cards are choices */}
+                                    <span aria-hidden className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 ${selected
+                                      ? "border-blue-600 bg-blue-600 text-white"
+                                      : "border-gray-300 dark:border-gray-600"}`}>
+                                        {selected && <Check size={14} strokeWidth={3} />}
                                     </span>
                                 </button>
                             );
@@ -371,6 +381,12 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                             {pickedNutrition ? "You changed the details." : `We don't have ${portion} for this yet.`} Search to update the nutrition.
                           </p>
                         )}
+                        {resultsFresh && !isLoading && !picked ? (
+                          <button type="button" disabled
+                            className="w-full cursor-default rounded-2xl bg-gray-200 px-4 py-3.5 text-base font-semibold text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                            ↑ Pick a match above
+                          </button>
+                        ) : (
                         <button
                           type="button"
                           onClick={handleSearch}
@@ -381,6 +397,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                             : canSearch ? `Find nutrition for ${portion}`
                             : queryLength > 0 ? `Type at least ${MIN_QUERY} letters` : "Type a dish or add a photo"}
                         </button>
+                        )}
                       </div>
                     )}
                 </div>
