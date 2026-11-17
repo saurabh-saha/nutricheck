@@ -79,7 +79,7 @@ export default function MealIdeas({ history, loaded, intake, onPick }) {
         <Sparkles size={18} className="text-amber-500" /> Ideas for {label}
         <span className="text-xs font-normal text-gray-500 dark:text-gray-400">· from your day so far</span>
       </h2>
-      <div className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1">
+      <div className="-mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-1">
         {state.loading
           ? [0, 1, 2].map((i) => <div key={i} className="h-28 w-56 shrink-0 animate-pulse rounded-2xl bg-gray-100 dark:bg-gray-800" />)
           : state.ideas.map((idea) => (
