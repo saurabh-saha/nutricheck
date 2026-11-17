@@ -14,8 +14,8 @@ import NutritionResult from '../components/NutritionResult'
 import WeightNudge from '../components/WeightNudge'
 import MealIdeas from '../components/MealIdeas'
 import { loadProfile } from '../utils/profile'
-import { auth, analyticsPromise } from "../utils/firebaseConfig";
-import { logEvent } from "firebase/analytics";
+import { auth } from "../utils/firebaseConfig";
+import { track } from "../utils/track";
 
 // Home: "What did you eat?" first, then how the day is going.
 export default function CalorieFinder() {
@@ -36,11 +36,7 @@ export default function CalorieFinder() {
   const landing = useMemo(() => landingSearchFrom(window.location.search), [])
 
   useEffect(() => {
-    analyticsPromise.then((analytics) => {
-      if (!analytics) return
-      logEvent(analytics, "page_view", { page_title: "CalorieFinder", page_path: "/" })
-      if (landing) logEvent(analytics, "landing_search", { search_term: landing.dish, quantity: landing.quantity, unit: landing.unit })
-    })
+    if (landing) track("landing_search", { search_term: landing.dish, quantity: landing.quantity, unit: landing.unit })
     // Guests read from this device; signed-in users from their account.
     const unsubscribe = onAuthStateChanged(auth, () => {
       refreshTrackerState({ setHistory })

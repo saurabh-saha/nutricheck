@@ -11,6 +11,7 @@ import {
   PACES, planFor, goalWeightRange, recommendedTargets, withCarbs, macroSplit, targetNotes, toIntake, daysSince, bmiOf,
 } from "../utils/goals";
 import { toast } from "../hooks/use-toast";
+import { track } from "../utils/track";
 
 const ACTIVITY = [
   { value: 1.2, label: "Desk", sub: "Mostly sitting", Icon: Armchair },
@@ -159,6 +160,7 @@ export default function Profile() {
       const intake = toIntake(targets);
       await saveProfile(data, intake);
       setRecommendedIntake(intake);
+      track("goal_set", { from: "profile", goal: plan.goal, custom_targets: custom });
       setSavedWeight(weight); setWeightUpdatedAt(updatedAt); setDirty(false);
       toast({ title: "✅ Goals saved", description: `${targets.calories} kcal · ${targets.protein} g protein a day` });
     } catch (err) {

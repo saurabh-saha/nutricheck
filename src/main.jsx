@@ -5,6 +5,10 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import './index.css'
 import { registerSW } from 'virtual:pwa-register'
+import { trackVisit } from './utils/track'
+
+// Before the first render, so every event (even the landing search) carries the campaign.
+trackVisit()
 
 // Installed app: when a new version is deployed, switch to it right away
 // (reloads once) instead of waiting for the next visit. Also check hourly

@@ -2,6 +2,7 @@ import { getFirestore, collection, addDoc, getDocs, doc, setDoc, updateDoc, dele
 import { getAuth } from "firebase/auth";
 import { cleanDishLabel } from "./units"
 import { makeThumbnail } from "./thumbnail"
+import { trackFoodAdded } from "./track";
 
 const db = getFirestore();
 const auth = getAuth();
@@ -283,6 +284,7 @@ export async function handleAddEntry({
     imageUrl = photos[0] ? await makeThumbnail(photos[0]) : thumb;
     await logEntry({ dish: fullDish, nutrition, date: selectedDate, meal, imageUrl, extras });
     await refreshTrackerState({ setHistory, setTodayData });
+    trackFoodAdded({ meal, via: photos[0] ? "photo" : "search", for_today: selectedDate === getTodayDate(), signed_in: Boolean(auth.currentUser) });
     onSuccess?.();
   } catch (err) {
     console.error("Error adding entry:", err);
@@ -300,6 +302,7 @@ export async function handleAddEntry({
 // Re-log a recent/favourite item in one tap.
 export async function quickAddEntry({ item, date, meal, setHistory, setTodayData }) {
   await logEntry({ dish: cleanDishLabel(item.dish), nutrition: item.nutrition, date, meal, imageUrl: item.imageUrl || null });
+  trackFoodAdded({ meal, via: "quick_add", for_today: date === getTodayDate(), signed_in: Boolean(auth.currentUser) });
   await refreshTrackerState({ setHistory, setTodayData });
 }
 
