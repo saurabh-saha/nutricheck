@@ -1,4 +1,8 @@
-// Nutrition for the chosen dish, protein first.
+import { Link } from "react-router-dom";
+import { Check } from "lucide-react";
+import { MEALS } from "../utils/nutritionTracker";
+
+// Nutrition for the chosen dish, protein first (plus an "Added" note after logging it).
 const MACROS = [
   { key: "carbs", label: "Carbs" },
   { key: "fat", label: "Fat" },
@@ -10,7 +14,9 @@ const num = (v) => {
   return Number.isFinite(n) ? Math.round(n) : 0;
 };
 
-export default function NutritionResult({ result }) {
+const mealLabel = (key) => MEALS.find((m) => m.key === key)?.label.toLowerCase() ?? "today";
+
+export default function NutritionResult({ result, added = null }) {
   if (!result) return null
   const protein = num(result.protein);
   const calories = num(result.calories);
@@ -42,6 +48,15 @@ export default function NutritionResult({ result }) {
           </div>
         ))}
       </div>
+
+      {added && (
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm dark:bg-emerald-900/30">
+          <span className="flex items-center gap-2 font-medium text-emerald-800 dark:text-emerald-300">
+            <Check size={18} /> Added to {mealLabel(added)}
+          </span>
+          <Link to="/track" className="font-semibold text-blue-600 dark:text-blue-400">View tracker →</Link>
+        </div>
+      )}
     </div>
   )
 }

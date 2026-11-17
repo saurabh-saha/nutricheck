@@ -56,7 +56,7 @@ const portionData = (item) => ({
  * - tracking=false (home page): tapping a result shows its nutrition right away.
  * - tracking=true (Add food sheet): tapping a result fills the form; then Add.
  */
-export default function DishInput({ onSelect, onClose, selectedDate, tracking = false, quickAdd = null, initial = null }) {
+export default function DishInput({ onSelect, onClose, selectedDate, tracking = false, quickAdd = null, initial = null, onPreview = null }) {
     // `initial` (home page): { dish, quantity, unit, photoUrl, results, note, autoSearch }
     const [dish, setDish] = useState(initial?.dish ?? "");
     const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
@@ -131,6 +131,12 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
       && photosKey === picked.photosKey;
     const queryLength = parseFoodQuery(dish).food.trim().length;
     const canSearch = queryLength >= MIN_QUERY || photos.length > 0;
+
+    // Let the page show the picked dish's breakdown (home page).
+    const previewKey = pickValid ? `${picked.item.name}|${quantity}|${unit}|${pickedNutrition.calories}` : "";
+    useEffect(() => {
+        onPreview?.(pickValid ? { name: picked.item.name, quantity, unit, nutrition: pickedNutrition } : null);
+    }, [previewKey]); // eslint-disable-line react-hooks/exhaustive-deps
     // Results on screen still match the text/photos: the next step is to pick one, not search again.
     const dishLower = parseFoodQuery(dish).food.trim().toLowerCase();
     // Results belong to the text that produced them (or a result picked from them).
@@ -214,7 +220,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
         if (adoptAmount && item.baseUnit) { q = item.baseQuantity; u = item.baseUnit; }
         else if (!amountTouched) u = item.defaultUnit || inferUnit(item.name) || unit;
         if (!tracking) {
-            onSelect?.(item.name, q, u, nutritionFor(item, q, u) || item.nutrition, photos);
+            onSelect?.(item.name, q, u, nutritionFor(item, q, u) || item.nutrition, photos, null, null, item.imageUrl || null, portionData(item));
             return;
         }
         setDish(item.name);

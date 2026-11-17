@@ -1,7 +1,9 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { getNutritionHistory, saveToHistory } from '../utils/nutritionHistory'
 import Layout from '../components/Layout'
 import { cleanDishLabel } from '../utils/units'
+import { handleAddEntry, getTodayDate } from '../utils/nutritionTracker'
+import { toast } from '../hooks/use-toast'
 import { landingSearchFrom } from '../utils/landingSearch'
 import DishInput from '../components/DishInput'
 import NutritionResult from '../components/NutritionResult'
@@ -12,6 +14,8 @@ import { logEvent } from "firebase/analytics";
 
 export default function CalorieFinder() {
   const [result, setResult] = useState(null)
+  const [added, setAdded] = useState(null) // meal the dish was just added to
+  const resultRef = useRef(null)
   const [previousSearches, setPreviousSearches] = useState([])
   // ?q=... from a campaign link, otherwise the built-in eggs example.
   const landing = useMemo(() => landingSearchFrom(window.location.search), [])
@@ -37,11 +41,31 @@ export default function CalorieFinder() {
   
   }, [])
 
-  const handleDishSelect = (dish, quantity, unit, nutrition) => {
-    const fullDish = cleanDishLabel(`${quantity} ${unit} of ${dish}`.trim());
-    setResult(nutrition);
-    const updated = saveToHistory(fullDish, nutrition);
-    setPreviousSearches(updated);
+  const scrollToResult = () =>
+    setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
+
+  // Picking a dish (or changing its amount) shows its breakdown.
+  const handlePreview = (p) => {
+    if (!p) return
+    setResult(p.nutrition)
+    setAdded(null)
+    scrollToResult()
+  }
+
+  // "Add to dinner · 310 kcal": log it for today, straight from the home page.
+  const handleAddFromHome = (dish, quantity, unit, nutrition, photos, _date, meal, thumb, extras) => {
+    const label = cleanDishLabel(`${quantity} ${unit} of ${dish}`)
+    setResult(nutrition)
+    setPreviousSearches(saveToHistory(label, nutrition))
+    handleAddEntry({
+      dish, quantity, unit, nutrition, photos, thumb, extras, meal,
+      onSuccess: () => {
+        setAdded(meal)
+        toast({ title: '✅ Added to today', description: label })
+        scrollToResult()
+      },
+      onError: () => toast({ title: "Couldn't add that", description: 'Please try again.', variant: 'destructive' }),
+    })
   }
 
   return (
@@ -51,16 +75,25 @@ export default function CalorieFinder() {
         <span>Find What’s on Your Plate</span>
       </h1>
 
-      <DishInput onSelect={handleDishSelect} initial={landing} />
+      <DishInput
+        tracking
+        selectedDate={getTodayDate()}
+        initial={landing}
+        onPreview={handlePreview}
+        onSelect={handleAddFromHome}
+        onClose={() => {}}
+      />
 
-      <NutritionResult result={result} />
+      <div ref={resultRef}>
+        <NutritionResult result={result} added={added} />
+      </div>
 
       <PreviousSearches
         searches={previousSearches}
         onClick={(dishName) => {
           const entries = getNutritionHistory();
           const found = entries.find(e => e.dish === dishName);
-          if (found) setResult(found.nutrition);
+          if (found) { setResult(found.nutrition); setAdded(null); scrollToResult() }
         }}
       />
     </Layout>
