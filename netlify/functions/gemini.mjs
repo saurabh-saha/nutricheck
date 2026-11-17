@@ -103,6 +103,8 @@ Dishes they often eat: ${usual.length ? JSON.stringify(usual) : 'unknown'}.
 Suggest exactly 3 small, specific, everyday Indian fixes that close these gaps, worst gap first.
 - For a nutrient they lack: something easy to ADD to a meal (e.g. a bowl of sprouts chaat at snack, a cucumber-carrot salad at lunch).
 - For too many calories: a lighter SWAP for one of their usual dishes.
+- Only fix the problems listed above. Every fix must clearly help one of them; no unrelated advice.
+- "why" states only what this fix adds (or saves) for that nutrient, e.g. "+8 g fiber". Don't estimate fractions of the gap.
 Each fix: "name" (dish only), "quantity" (number), "unit" (one of ${JSON.stringify(IDEA_UNITS)}), "meal" (one of ${JSON.stringify(MEALS)}),
 "why" (max 60 characters, with the number, e.g. "+8 g fiber, a third of your gap"), "nutrition" for that amount.
 Output strictly JSON: {"fixes": [{"name": "...", "quantity": 1, "unit": "bowl", "meal": "snack", "why": "...", "nutrition": ${JSON.stringify(Object.fromEntries(NUM_KEYS.map((k) => [k, 0])))}}]}
@@ -271,7 +273,7 @@ async function handleFixes(body, apiKey, uid, context) {
   const usual = names(body?.usual);
 
   const r = (n) => Math.round(n / 5) * 5;
-  const cacheParts = ['v1', 'fixes', ...misses.map((m) => `${m.key}:${m.kind}:${r(m.avg)}:${r(m.target)}`), usual.join('|')];
+  const cacheParts = ['v2', 'fixes', ...misses.map((m) => `${m.key}:${m.kind}:${r(m.avg)}:${r(m.target)}`), usual.join('|')];
   try {
     const cached = await readCache(cacheParts);
     if (cached) return json(200, { result: cached, cached: true });
