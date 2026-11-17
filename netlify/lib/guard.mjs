@@ -110,6 +110,15 @@ const cacheKey = async (parts) => {
 export const dishSlug = (name) =>
   String(name || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
 
+// Diagnostics: which storage backs a store, and how many keys it has.
+export const storeInfo = async (name) => {
+  const s = store(name);
+  const kind = s === memoryStore ? 'memory' : 'blobs';
+  let keys = null, error = null;
+  try { keys = (await s.list()).blobs.length; } catch (e) { error = e.message; }
+  return { name, kind, keys, error, hasContext: Boolean(globalThis.netlifyBlobsContext || process.env.NETLIFY_BLOBS_CONTEXT) };
+};
+
 let keyCache = { at: 0, keys: [] };
 export const catalogPut = async (items) => {
   const s = store('food-catalog');
