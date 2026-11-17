@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import Layout from '../components/Layout'
 import { cleanDishLabel } from '../utils/units'
-import { handleAddEntry, getTodayDate, getRecentDishes, refreshTrackerState, computeSummary, getDefaultIntake, streakOf } from '../utils/nutritionTracker'
+import { handleAddEntry, getTodayDate, defaultMealForNow, getRecentDishes, refreshTrackerState, computeSummary, getDefaultIntake, streakOf } from '../utils/nutritionTracker'
 import { getFavorites, addFavorite, removeFavorite } from '../utils/favorites'
 import { useIntake } from '../context/ProfileContext'
 import { toast } from '../hooks/use-toast'
@@ -11,6 +11,9 @@ import DishInput from '../components/DishInput'
 import DateChip from '../components/DateChip'
 import DayCard from '../components/DayCard'
 import NutritionResult from '../components/NutritionResult'
+import WeightNudge from '../components/WeightNudge'
+import MealIdeas from '../components/MealIdeas'
+import { loadProfile } from '../utils/profile'
 import { auth, analyticsPromise } from "../utils/firebaseConfig";
 import { logEvent } from "firebase/analytics";
 
@@ -20,7 +23,12 @@ export default function CalorieFinder() {
   const [added, setAdded] = useState(null) // meal the dish was just added to
   const [selectedDate, setSelectedDate] = useState(getTodayDate())
   const [history, setHistory] = useState([])
+  const [historyLoaded, setHistoryLoaded] = useState(false)
+  const [prefill, setPrefill] = useState(null)
   const [favorites, setFavorites] = useState([])
+  const [profile, setProfile] = useState(null)
+  const [meal, setMeal] = useState(defaultMealForNow)
+  const inputRef = useRef(null)
   const resultRef = useRef(null)
   const { recommendedIntake } = useIntake()
   const intake = recommendedIntake || getDefaultIntake()
@@ -35,8 +43,11 @@ export default function CalorieFinder() {
     })
     // Guests read from this device; signed-in users from their account.
     const unsubscribe = onAuthStateChanged(auth, () => {
-      refreshTrackerState({ setHistory }).catch((err) => console.error("Couldn't load your log:", err))
+      refreshTrackerState({ setHistory })
+        .catch((err) => console.error("Couldn't load your log:", err))
+        .finally(() => setHistoryLoaded(true))
       getFavorites().then(setFavorites).catch(() => {})
+      loadProfile().then(setProfile).catch(() => {})
     })
     return () => unsubscribe()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -55,6 +66,24 @@ export default function CalorieFinder() {
     setResult(p.nutrition)
     setAdded(null)
     scrollToResult()
+  }
+
+  // Tapping "Snack" on the day card: what you type next goes to snack.
+  const pickMeal = (key) => {
+    setMeal(key)
+    inputRef.current?.focus()
+    inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  // Tapping a meal idea: it's ready to add, for that meal and today.
+  const pickIdea = (idea) => {
+    setMeal(idea.meal)
+    setSelectedDate(getTodayDate())
+    setPrefill({
+      item: { name: idea.name, baseQuantity: idea.quantity, baseUnit: idea.unit, nutrition: idea.nutrition },
+      quantity: idea.quantity, unit: idea.unit, nonce: Date.now(),
+    })
+    inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
   const handleToggleFavorite = async (item, isFavorite) => {
@@ -101,11 +130,19 @@ export default function CalorieFinder() {
         onPreview={handlePreview}
         onSelect={handleAddFromHome}
         onClose={() => {}}
+        meal={meal}
+        onMealChange={setMeal}
+        inputRef={inputRef}
+        prefill={prefill}
       />
 
       <div ref={resultRef}>
         <NutritionResult result={result} added={added} />
       </div>
+
+      {selectedDate === getTodayDate() && (
+        <MealIdeas history={history} loaded={historyLoaded} intake={intake} onPick={pickIdea} />
+      )}
 
       <DayCard
         date={selectedDate}
@@ -114,7 +151,11 @@ export default function CalorieFinder() {
         intake={intake}
         hasGoal={Boolean(recommendedIntake)}
         streak={streak}
+        activeMeal={meal}
+        onPickMeal={pickMeal}
       />
+
+      <WeightNudge profile={profile} />
     </Layout>
   )
 }

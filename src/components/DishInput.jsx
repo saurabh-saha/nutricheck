@@ -58,7 +58,7 @@ const portionData = (item) => ({
  * - compact (home page): amount, meal and the action bar appear only once
  *   there's something to look up or add.
  */
-export default function DishInput({ onSelect, onClose, selectedDate, tracking = false, quickAdd = null, initial = null, onPreview = null, compact = false }) {
+export default function DishInput({ onSelect, onClose, selectedDate, tracking = false, quickAdd = null, initial = null, onPreview = null, compact = false, meal: mealProp, onMealChange, inputRef: inputRefProp, prefill = null }) {
     // `initial` (home page): { dish, quantity, unit, photoUrl, results, note, autoSearch }
     const [dish, setDish] = useState(initial?.dish ?? "");
     const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
@@ -67,7 +67,10 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
     const [amountOpen, setAmountOpen] = useState(false);
     const [photos, setPhotos] = useState([]);
     const [note, setNote] = useState(initial?.note ?? "");
-    const [meal, setMeal] = useState(defaultMealForNow);
+    const [ownMeal, setOwnMeal] = useState(defaultMealForNow);
+    // The page can control the meal (home: tapping Snack on the day card).
+    const meal = mealProp ?? ownMeal;
+    const setMeal = onMealChange ?? setOwnMeal;
     const [isLoading, setIsLoading] = useState(false);
     const [result, setResult] = useState(initial?.results ?? null);
     const [attempt, setAttempt] = useState(null);        // { n, max } while retrying
@@ -79,7 +82,8 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
     const [catalog, setCatalog] = useState([]);
     const [searchedFor, setSearchedFor] = useState(initial?.results ? { food: (initial.dish || "").toLowerCase(), photos: null } : null);
     const [closing, setClosing] = useState(false);
-    const textInputRef = useRef(null);
+    const ownInputRef = useRef(null);
+    const textInputRef = inputRefProp ?? ownInputRef;
     const latestRequestRef = useRef(0);
 
     useEffect(() => {
@@ -210,6 +214,21 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
         if (!amountTouched && !p.unit && !inferred && UNIT_KEYS.has(aiUnit)) setUnit(aiUnit);
     };
 
+    // A meal idea tapped on the home page: fill the form with it, ready to add.
+    // prefill: { item, quantity, unit, nonce }
+    useEffect(() => {
+      if (!prefill) return;
+      setDish(prefill.item.name);
+      setQuantity(prefill.quantity);
+      setUnit(prefill.unit);
+      setAmountTouched(true);
+      setAmountOpen(false);
+      setPhotos([]);
+      setResult(null);
+      setNote("");
+      setPicked({ key: "idea", item: prefill.item, photosKey: "" });
+    }, [prefill?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
+
     // A dish from a marketing link (?q=...) is searched straight away.
     useEffect(() => {
       if (initial?.autoSearch) handleSearch();
@@ -297,7 +316,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                     onSubmit={handleSearch}
                     suggestions={suggestions}
                     onPickSuggestion={pickFromDropdown}
-                    placeholder={compact ? "Try “2 rotis” or “egg bhurji”" : undefined}
+                    placeholder={compact ? `${MEALS.find(m => m.key === meal)?.label ?? "Food"}: try “2 rotis”` : undefined}
                     onToggleFavorite={tracking && quickAdd ? (s) => quickAdd.onToggleFavorite(s.source, s.fav) : undefined}
                 />
 

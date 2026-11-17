@@ -129,7 +129,7 @@ export default function Onboarding({ onDone, onLogFirstMeal }) {
   const under13 = age !== "" && Number(age) < 13;
 
   const finish = async () => {
-    const profile = { age: Number(age), sex, height: Number(height), weight: Number(weight), activityLevel, goal };
+    const profile = { age: Number(age), sex, height: Number(height), weight: Number(weight), activityLevel, goal, weightUpdatedAt: new Date().toISOString() };
     const result = calculatePersonalizedIntake(profile);
     localStorage.setItem("userProfile", JSON.stringify(profile));
     localStorage.setItem(ONBOARDING_DONE_KEY, "1");

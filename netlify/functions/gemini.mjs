@@ -54,6 +54,43 @@ ${jsonTemplate}
 All values must be integers. Use grams (g) for everything and kcal for calories. Do not include any units in the values.
 Return only this JSON object, no explanations, no nested structures.`;
 
+// ---- "What to eat next": 3 ideas for the coming meal, from the day so far ----
+const MEALS = ['breakfast', 'lunch', 'snack', 'dinner'];
+const IDEA_UNITS = ['piece', 'bowl', 'plate', 'cup', 'g', 'ml'];
+const NUM_KEYS = ['calories', 'protein', 'carbs', 'fat', 'fiber'];
+const numbers = (o) => Object.fromEntries(NUM_KEYS.map((k) => [k, Math.max(0, Math.round(Number(o?.[k]) || 0))]));
+const names = (list) => (Array.isArray(list) ? list : []).slice(0, 10).map((n) => clean(n, 40)).filter(Boolean);
+
+const ideasPrompt = ({ meal, eaten, targets, usual, today }) => {
+  const left = Object.fromEntries(NUM_KEYS.map((k) => [k, Math.max(0, targets[k] - eaten[k])]));
+  return `
+You suggest what an Indian home cook should eat next. Be practical: everyday Indian dishes, normal portions.
+Coming meal: ${meal}.
+Eaten so far today: ${JSON.stringify(eaten)} (kcal and grams). ${today.length ? `Dishes: ${JSON.stringify(today)}.` : 'Nothing logged yet.'}
+Daily targets: ${JSON.stringify(targets)}. Still left today: ${JSON.stringify(left)}.
+Dishes this person often eats: ${usual.length ? JSON.stringify(usual) : 'unknown'}.
+Rules:
+1. Suggest exactly 3 dishes for ${meal}. Fit them within what is left today (a ${meal === 'snack' ? 'snack is small, ~150-300 kcal' : 'meal is a fair share of what is left'}).
+2. If they have usual dishes, make the FIRST suggestion one of them (or a close, healthier twist) when it fits.
+3. Use the others to cover gaps: if protein or fiber is far behind, favour dishes rich in it. ${meal === 'dinner' ? 'This is the last meal: cover what the day is missing.' : ''}
+4. Don't repeat what they already ate today.
+5. "why" is one short line (max 60 characters) saying what it covers, like "Adds 25 g protein you're short on".
+6. "unit" is one of ${JSON.stringify(IDEA_UNITS)}; "quantity" is a number; "nutrition" is for that amount.
+Output strictly JSON: {"ideas": [{"name": "...", "quantity": 1, "unit": "bowl", "why": "...", "nutrition": ${JSON.stringify(Object.fromEntries(NUM_KEYS.map((k) => [k, 0])))}}]}
+Integers only. Names are dish names only, no amounts. JSON only.`;
+};
+
+const cleanIdeas = (parsed) => (Array.isArray(parsed?.ideas) ? parsed.ideas : Array.isArray(parsed) ? parsed : [])
+  .filter((i) => i && typeof i.name === 'string' && i.nutrition)
+  .slice(0, 3)
+  .map((i) => ({
+    name: clean(i.name, 60),
+    quantity: Math.min(1000, Math.max(0.5, Number(i.quantity) || 1)),
+    unit: IDEA_UNITS.includes(i.unit) ? i.unit : 'bowl',
+    why: clean(i.why, 80),
+    nutrition: numbers(i.nutrition),
+  }));
+
 const callGemini = async (apiKey, model, parts, timeoutMs) => {
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: 'POST',
@@ -88,6 +125,7 @@ export default async (req, context) => {
   }
 
   const { kind = 'suggestions' } = body || {};
+  if (kind === 'ideas') return handleIdeas(body, apiKey, uid, context);
   // Up to 3 photos of the same meal; `image` is the older single-photo field.
   const images = (Array.isArray(body?.images) ? body.images : body?.image ? [body.image] : []).filter(Boolean);
   const dish = clean(body?.dish);
@@ -162,3 +200,47 @@ export default async (req, context) => {
   console.error('Gemini failed:', errors.join(' | '));
   return json(502, { error: 'AI service unavailable, please try again' });
 };
+
+async function handleIdeas(body, apiKey, uid, context) {
+  const meal = MEALS.includes(body?.meal) ? body.meal : 'lunch';
+  const input = { meal, eaten: numbers(body?.eaten), targets: numbers(body?.targets), usual: names(body?.usual), today: names(body?.today) };
+  if (!input.targets.calories) input.targets = { calories: 2000, protein: 50, carbs: 260, fat: 70, fiber: 30 };
+
+  // Same situation -> same ideas (round to 50 kcal / 5 g so near-identical days share an answer).
+  const r = (n, step) => Math.round(n / step) * step;
+  const cacheParts = ['v1', 'ideas', meal,
+    ...NUM_KEYS.map((k) => r(input.eaten[k], k === 'calories' ? 50 : 5)),
+    ...NUM_KEYS.map((k) => r(input.targets[k], k === 'calories' ? 50 : 5)),
+    input.usual.join('|'), input.today.join('|')];
+  try {
+    const cached = await readCache(cacheParts);
+    if (cached) return json(200, { result: cached, cached: true });
+  } catch (err) {
+    console.warn('Cache read failed:', err.message);
+  }
+
+  let blocked = null;
+  try {
+    blocked = await consumeQuota({ uid, ip: context?.ip });
+  } catch (err) {
+    console.error('Quota check failed, allowing request:', err.message);
+  }
+  if (blocked) return json(429, { error: blocked });
+
+  const parts = [{ text: ideasPrompt(input) }];
+  const deadline = Date.now() + DEADLINE_MS;
+  for (const model of MODELS) {
+    const remaining = deadline - Date.now();
+    if (remaining < 1000) break;
+    try {
+      const ideas = cleanIdeas(extractJsonFromText(await callGemini(apiKey, model, parts, model === MODELS[0] ? Math.min(7000, remaining) : remaining)));
+      if (ideas.length) {
+        await writeCache(cacheParts, ideas).catch((err) => console.warn('Cache write failed:', err.message));
+        return json(200, { result: ideas });
+      }
+    } catch (err) {
+      console.warn('Ideas failed:', err.message);
+    }
+  }
+  return json(502, { error: 'AI service unavailable, please try again' });
+}
