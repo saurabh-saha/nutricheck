@@ -9,6 +9,23 @@ import { registerSW } from 'virtual:pwa-register'
 // Installed app: when a new version is deployed, switch to it right away
 // (reloads once) instead of waiting for the next visit. Also check hourly
 // and whenever the app comes back to the foreground.
+// When a new version takes control of this open page, show it:
+// right away if the page just loaded, otherwise the next time the app is
+// reopened (so nobody loses what they were typing).
+if ('serviceWorker' in navigator) {
+  const hadController = Boolean(navigator.serviceWorker.controller)
+  const loadedAt = Date.now()
+  let pendingReload = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) return // first install, not an update
+    if (Date.now() - loadedAt < 15000) window.location.reload()
+    else pendingReload = true
+  })
+  document.addEventListener('visibilitychange', () => {
+    if (pendingReload && document.visibilityState === 'visible') window.location.reload()
+  })
+}
+
 registerSW({
   immediate: true,
   onRegisteredSW(_url, registration) {
