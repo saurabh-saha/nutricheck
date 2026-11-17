@@ -6,7 +6,7 @@ import { UNITS, unitInfo, cleanDishLabel, isMeasure, parseFoodQuery, inferUnit, 
 import { favoriteKey } from "../utils/favorites"
 import { DEFAULT_EXAMPLE } from "../utils/landingSearch"
 import FadeScale from "./ui/FadeScale";
-import DishComposer from "./DishComposer";
+import DishComposer, { MIN_QUERY } from "./DishComposer";
 import PortionPicker from "./PortionPicker";
 
 const MEAL_ICONS = { breakfast: Sunrise, lunch: Sun, snack: Cookie, dinner: Moon };
@@ -88,7 +88,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
     // Dishes the app already knows (shared catalogue), for the dropdown. No AI involved.
     useEffect(() => {
       const q = parseFoodQuery(dish).food.trim();
-      if (q.length < 2) { setCatalog([]); return; }
+      if (q.length < MIN_QUERY) { setCatalog([]); return; }
       const ctrl = new AbortController();
       const t = setTimeout(() => {
         fetch(`/.netlify/functions/foods?q=${encodeURIComponent(q)}`, { signal: ctrl.signal })
@@ -117,7 +117,8 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
     const pickValid = Boolean(picked && pickedNutrition)
       && dish.trim().toLowerCase() === picked.item.name.toLowerCase()
       && photosKey === picked.photosKey;
-    const canSearch = Boolean(dish.trim() || photos.length);
+    const queryLength = parseFoodQuery(dish).food.trim().length;
+    const canSearch = queryLength >= MIN_QUERY || photos.length > 0;
 
     const handleSearch = async () => {
         if (!canSearch) return;
@@ -220,7 +221,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
             for (const r of quickAdd.recent || []) add("Recent", fromEntry(r), { fav: false, source: r });
         }
         const q = parseFoodQuery(dish).food.trim().toLowerCase();
-        if (q.length >= 2) {
+        if (q.length >= MIN_QUERY) {
             const local = DEFAULT_EXAMPLE.results.filter(r => r.name.toLowerCase().includes(q) || q.split(/\s+/).every(w => r.name.toLowerCase().includes(w.replace(/s$/, ""))));
             for (const item of [...catalog, ...local]) add("Known dishes", item);
         }
@@ -376,7 +377,9 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                           disabled={isLoading || !canSearch}
                           className="w-full rounded-2xl bg-blue-600 px-4 py-3.5 text-base font-semibold text-white active:scale-[0.98] disabled:opacity-50"
                         >
-                          {isLoading ? "Finding nutrition…" : canSearch ? `Find nutrition for ${portion}` : "Type a dish or add a photo"}
+                          {isLoading ? "Finding nutrition…"
+                            : canSearch ? `Find nutrition for ${portion}`
+                            : queryLength > 0 ? `Type at least ${MIN_QUERY} letters` : "Type a dish or add a photo"}
                         </button>
                       </div>
                     )}

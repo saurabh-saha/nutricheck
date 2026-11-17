@@ -10,7 +10,7 @@ export default async (req) => {
   if (req.method !== 'GET') return json(405, { error: 'Method not allowed' });
   if (!checkOrigin(req)) return json(403, { error: 'Forbidden' });
   const q = (new URL(req.url).searchParams.get('q') || '').trim().slice(0, 60);
-  if (q.length < 2) return json(200, { items: [] });
+  if (q.length < 3) return json(200, { items: [] }); // too short to be useful
   try {
     const items = await catalogSearch(q);
     return json(200, { items }, { 'Cache-Control': 'public, max-age=60' });

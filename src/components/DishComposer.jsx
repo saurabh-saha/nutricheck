@@ -3,6 +3,7 @@ import { Camera, Plus, Sparkles, Star, X, History } from "lucide-react";
 
 const MAX_PHOTOS = 3;
 const MAX_SUGGESTIONS = 6;
+export const MIN_QUERY = 3; // shortest text worth searching (catalogue or AI)
 
 function Thumb({ file, onRemove, label }) {
   // Create and free the preview URL in the same effect, so it stays valid
@@ -50,7 +51,7 @@ export default function DishComposer({
     return list.slice(0, MAX_SUGGESTIONS);
   }, [suggestions, query]);
   // Rows: matches, then "Search with AI" when something is typed.
-  const rows = [...matches.map((m) => ({ type: "item", item: m })), ...(query ? [{ type: "ai" }] : [])];
+  const rows = [...matches.map((m) => ({ type: "item", item: m })), ...(query.length >= MIN_QUERY ? [{ type: "ai" }] : [])];
   const showList = open && rows.length > 0;
 
   useEffect(() => setActive(-1), [query]);
