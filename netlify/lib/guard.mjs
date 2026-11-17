@@ -2,6 +2,7 @@
 // per-IP daily limits, a global daily cap, and a shared answer cache.
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { getStore } from '@netlify/blobs';
+import { fuzzyFilter } from '../../src/utils/fuzzy.js';
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'nutricheck-f7e71';
 const FIREBASE_JWKS = createRemoteJWKSet(
@@ -53,6 +54,7 @@ const memoryStore = {
     return v === undefined ? null : opts?.type === 'json' ? JSON.parse(v) : v;
   },
   setJSON: async (key, value) => void memory.set(key, JSON.stringify(value)),
+  list: async () => ({ blobs: [...memory.keys()].map((key) => ({ key })) }),
 };
 
 const stores = {};
@@ -60,12 +62,13 @@ const store = (name) => {
   if (stores[name]) return stores[name];
   try {
     stores[name] = getStore({ name, consistency: 'strong' });
+    return stores[name];
   } catch (err) {
     if (err?.name !== 'MissingBlobsEnvironmentError') throw err;
-    console.warn(`Netlify Blobs unavailable (${name}); using in-memory store`);
-    stores[name] = memoryStore;
+    // Not cached: try the real storage again on the next request.
+    console.warn(`Netlify Blobs unavailable (${name}); using in-memory store for this request`);
+    return memoryStore;
   }
-  return stores[name];
 };
 
 const today = () => new Date().toISOString().slice(0, 10); // UTC day
@@ -102,6 +105,34 @@ const cacheKey = async (parts) => {
   const data = new TextEncoder().encode(JSON.stringify(parts).toLowerCase());
   const hash = await crypto.subtle.digest('SHA-256', data);
   return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
+};
+
+// ---- shared dish catalogue (dishes the AI has already described) ----
+// One blob per dish, keyed by a slug of its name, so searches never need the AI.
+export const dishSlug = (name) =>
+  String(name || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+
+let keyCache = { at: 0, keys: [] };
+export const catalogPut = async (items) => {
+  const s = store('food-catalog');
+  for (const item of items) {
+    const key = dishSlug(item.name);
+    if (key && item.per100g) {
+      await s.setJSON(key, { ...item, savedAt: Date.now() });
+      if (!keyCache.keys.includes(key)) keyCache.keys.push(key); // searchable here straight away
+    }
+  }
+};
+export const catalogSearch = async (query, limit = 8) => {
+  const s = store('food-catalog');
+  if (Date.now() - keyCache.at > 60_000) {
+    const { blobs } = await s.list();
+    keyCache = { at: Date.now(), keys: blobs.map((b) => b.key) };
+  }
+  // Forgiving match on the dish names (typos, doubled letters, partial words).
+  const hits = fuzzyFilter(query, keyCache.keys, (k) => k.replace(/-/g, ' ')).slice(0, limit);
+  const items = await Promise.all(hits.map((k) => s.get(k, { type: 'json' }).catch(() => null)));
+  return items.filter(Boolean);
 };
 
 export const readCache = async (parts) => store('gemini-cache').get(await cacheKey(parts), { type: 'json' });

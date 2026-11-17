@@ -85,10 +85,13 @@ export default function AddFoodDialog({ history = [], setHistory, setTodayData, 
         </button>
       </DialogTrigger>
 
-      <DialogContent className="mobile-sheet w-full max-w-md max-h-[92dvh] overflow-y-auto overflow-x-hidden grid-cols-[minmax(0,1fr)] gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] top-auto bottom-0 translate-y-0 rounded-t-3xl border-0 bg-gray-50 dark:bg-gray-900 sm:top-[50%] sm:bottom-auto sm:translate-y-[-50%] sm:rounded-2xl sm:p-6">
+      <DialogContent
+        // Esc closes the food dropdown first, not the whole sheet.
+        onEscapeKeyDown={(e) => { if (document.querySelector('[role="combobox"][aria-expanded="true"]')) e.preventDefault() }}
+        className="mobile-sheet w-full max-w-md max-h-[92dvh] overflow-y-auto overflow-x-hidden grid-cols-[minmax(0,1fr)] gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] top-auto bottom-0 translate-y-0 rounded-t-3xl border-0 bg-gray-50 dark:bg-gray-900 sm:top-[50%] sm:bottom-auto sm:translate-y-[-50%] sm:rounded-2xl sm:p-6">
         <DialogHeader>
           <div className="mx-auto mb-1 h-1.5 w-10 rounded-full bg-gray-300 dark:bg-gray-700 sm:hidden" aria-hidden />
-          <div className="flex items-center gap-3 pr-8">
+          <div className="flex items-center justify-between gap-3 pr-9">
             <DialogTitle className="text-left text-lg">Add food</DialogTitle>
             <DateChip value={selectedDate} onChange={setSelectedDate} />
           </div>
@@ -98,9 +101,9 @@ export default function AddFoodDialog({ history = [], setHistory, setTodayData, 
             tracking
             selectedDate={selectedDate}
             quickAdd={{ favorites, recent, onToggleFavorite: handleToggleFavorite }}
-            onSelect={(dish, quantity, unit, nutrition, photos, date, meal, thumb) => {
+            onSelect={(dish, quantity, unit, nutrition, photos, date, meal, thumb, extras) => {
                 handleAddEntry({
-                  dish, quantity, unit, photos, thumb, nutrition, meal,
+                  dish, quantity, unit, photos, thumb, extras, nutrition, meal,
                   selectedDate: date,
                   setHistory,
                   setTodayData,
