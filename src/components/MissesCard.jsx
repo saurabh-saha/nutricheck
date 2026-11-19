@@ -3,22 +3,14 @@ import { AlertTriangle, Plus, Sparkles } from "lucide-react"
 import { criticalMisses, MISS_LABELS } from "../utils/misses"
 import { getMissFixes } from "../utils/gemini.jsx"
 import { MEALS } from "../utils/nutritionTracker"
-import { cleanDishLabel, parseFoodQuery, unitInfo, isMeasure } from "../utils/units"
+import { unitInfo, isMeasure } from "../utils/units"
+import { usualDishes } from "../utils/mealPlan"
 
 const CACHE_KEY = "missFixes"
 const REFRESH_DAYS = 2
 const amount = (q, unit) => (isMeasure(unit) ? `${q} ${unit}` : `${q} ${(unitInfo(unit)?.label ?? unit).toLowerCase()}${q > 1 ? "s" : ""}`)
 const mealLabel = (key) => MEALS.find((m) => m.key === key)?.label.toLowerCase() ?? "snack"
 const readCache = () => { try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "null") } catch { return null } }
-
-function usualDishes(history) {
-  const c = new Map()
-  for (const e of history) {
-    const n = parseFoodQuery(cleanDishLabel(e.dish || "")).food.trim()
-    if (n) c.set(n, (c.get(n) || 0) + 1)
-  }
-  return [...c.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([n]) => n)
-}
 
 const missLine = (m) => m.kind === "low"
   ? `${m.avg} g a day vs ${m.target} g goal`

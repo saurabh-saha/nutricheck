@@ -1,6 +1,7 @@
 import { getFirestore, collection, addDoc, getDocs, doc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { cleanDishLabel } from "./units"
+import { mealForHour } from "./mealPlan"
 import { makeThumbnail } from "./thumbnail"
 import { trackFoodAdded } from "./track";
 
@@ -27,13 +28,7 @@ export const MEALS = [
 ];
 
 // Sensible default meal slot for the current time of day.
-export function defaultMealForNow(date = new Date()) {
-  const h = date.getHours();
-  if (h >= 4 && h < 11) return "breakfast";
-  if (h >= 11 && h < 15) return "lunch";
-  if (h >= 15 && h < 18) return "snack";
-  return "dinner";
-}
+export const defaultMealForNow = (date = new Date()) => mealForHour(date.getHours());
 
 export const mealOrder = (meal) => {
   const i = MEALS.findIndex(m => m.key === meal);

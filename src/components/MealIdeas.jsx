@@ -1,36 +1,12 @@
 import { useEffect, useMemo, useState } from "react"
 import { Sparkles, ChevronRight } from "lucide-react"
 import { getMealIdeas } from "../utils/gemini.jsx"
-import { MEALS, defaultMealForNow, getTodayDate } from "../utils/nutritionTracker"
-import { cleanDishLabel, parseFoodQuery, unitInfo, isMeasure } from "../utils/units"
+import { MEALS, getTodayDate } from "../utils/nutritionTracker"
+import { unitInfo, isMeasure } from "../utils/units"
+import { ideasInput } from "../utils/mealPlan"
 
 const CACHE_KEY = "mealIdeas"
-const foodName = (dish) => parseFoodQuery(cleanDishLabel(dish || "")).food.trim()
 const amount = (q, unit) => (isMeasure(unit) ? `${q} ${unit}` : `${q} ${(unitInfo(unit)?.label ?? unit).toLowerCase()}${q > 1 ? "s" : ""}`)
-
-// The meal to plan for: the one for this time of day, or the next one not logged yet.
-function nextMeal(todayEntries, now = new Date()) {
-  const logged = new Set(todayEntries.map((e) => e.meal))
-  const order = MEALS.map((m) => m.key)
-  for (let i = order.indexOf(defaultMealForNow(now)); i < order.length; i++) {
-    if (!logged.has(order[i])) return order[i]
-  }
-  return null // dinner's in: nothing left to plan
-}
-
-// Dishes this person eats most, for this meal first.
-function usualDishes(history, meal) {
-  const count = (entries) => {
-    const c = new Map()
-    for (const e of entries) {
-      const n = foodName(e.dish)
-      if (n) c.set(n, (c.get(n) || 0) + 1)
-    }
-    return [...c.entries()].sort((a, b) => b[1] - a[1]).map(([n]) => n)
-  }
-  const forMeal = count(history.filter((e) => e.meal === meal))
-  return [...new Set([...forMeal, ...count(history)])].slice(0, 6)
-}
 
 const readCache = () => { try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "null") } catch { return null } }
 
@@ -40,8 +16,9 @@ const readCache = () => { try { return JSON.parse(localStorage.getItem(CACHE_KEY
  */
 export default function MealIdeas({ history, loaded, intake, onPick }) {
   const today = getTodayDate()
-  const todayEntries = useMemo(() => history.filter((e) => e.date === today), [history, today])
-  const meal = nextMeal(todayEntries)
+  // Same question the reminder email asks, so both show the same (cached) ideas.
+  const input = useMemo(() => ideasInput({ history, day: today, hour: new Date().getHours(), intake }), [history, today, intake])
+  const meal = input?.meal ?? null
   const key = meal ? `${today}:${new Date().getHours()}:${meal}` : null
   const [state, setState] = useState(() => {
     const c = readCache()
@@ -54,15 +31,7 @@ export default function MealIdeas({ history, loaded, intake, onPick }) {
     if (cached?.key === key) { setState({ key, ideas: cached.ideas, loading: false }); return }
     let cancelled = false
     setState({ key, ideas: [], loading: true })
-    const eaten = todayEntries.reduce((s, e) => {
-      for (const k of ["calories", "protein", "carbs", "fat", "fiber"]) s[k] += Number(e.nutrition?.[k]) || 0
-      return s
-    }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 })
-    getMealIdeas({
-      meal, eaten, targets: intake,
-      usual: usualDishes(history, meal),
-      today: todayEntries.map((e) => foodName(e.dish)).filter(Boolean),
-    }).then((ideas) => {
+    getMealIdeas(input).then((ideas) => {
       if (cancelled) return
       if (ideas.length) { try { localStorage.setItem(CACHE_KEY, JSON.stringify({ key, ideas })) } catch { /* private mode */ } }
       setState({ key, ideas, loading: false })

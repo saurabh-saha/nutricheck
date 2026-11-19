@@ -2,10 +2,11 @@
 // which was never scheduled). Runs at 10:00 and 20:00 India time.
 import { getDb, makeSender } from '../lib/services.mjs';
 import { runReminders } from '../lib/reminders.mjs';
+import * as advice from '../lib/advice.mjs';
 
 export default async () => {
   try {
-    const result = await runReminders({ db: getDb(), send: makeSender() });
+    const result = await runReminders({ db: getDb(), send: makeSender(), advice });
     console.log('Reminders:', JSON.stringify(result));
   } catch (err) {
     console.error('Reminders failed:', err.message);

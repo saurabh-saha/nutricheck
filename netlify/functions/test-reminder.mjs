@@ -1,11 +1,14 @@
 // "Send me a test reminder" from Settings.
+// - Builds the real, personalised email from the caller's own log (evening
+//   version by default; send {"bucket": "morning"} for the other one).
 // - Requires a logged-in Firebase user with a verified email.
 // - Only ever emails that user's own address, max 3 per user per day.
 // - If the caller is the admin (email == GMAIL_USER), also returns a dry run:
 //   who would get the morning/evening reminders right now (counts only).
 import { checkOrigin, verifyFirebaseToken, consumeDaily } from '../lib/guard.mjs';
 import { getDb, makeSender, isAdminEmail } from '../lib/services.mjs';
-import { BUCKETS, runReminders } from '../lib/reminders.mjs';
+import { runReminders, emailFor, loadHistory, zonedParts } from '../lib/reminders.mjs';
+import * as advice from '../lib/advice.mjs';
 
 const json = (status, body) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -35,12 +38,18 @@ export default async (req) => {
 
   try {
     const send = makeSender();
-    const bucket = BUCKETS.evening;
-    await send(claims.email, `[Test] ${bucket.subject}`, bucket.html);
+    const db = getDb();
+    const body = await req.json().catch(() => ({}));
+    const bucket = body?.bucket === 'morning' ? 'morning' : 'evening';
+    const { day: today, hour } = zonedParts(new Date());
+    const [userSnap, history] = await Promise.all([db.collection('users').doc(claims.sub).get(), loadHistory(db, claims.sub)]);
+    const user = { authInfo: { displayName: claims.name }, ...(userSnap.data() || {}) };
+    // The real hour for the evening email decides "ideas for dinner"; the morning one plans breakfast.
+    const { subject, html } = await emailFor({ user, history, bucket, today, hour: bucket === 'morning' ? 10 : Math.max(hour, 18), advice });
+    await send(claims.email, `[Test] ${subject}`, html);
 
     let dryRun;
     if (isAdminEmail(claims.email)) {
-      const db = getDb();
       const [morning, evening] = await Promise.all([
         runReminders({ db, send, bucket: 'morning', dryRun: true }),
         runReminders({ db, send, bucket: 'evening', dryRun: true }),
