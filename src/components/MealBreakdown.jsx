@@ -40,8 +40,8 @@ export default function MealBreakdown({ rows, onChange }) {
           {rows.map((r, i) => {
             const n = nutritionFor(r.item, r.quantity, r.unit) || {};
             return (
-              <li key={`${r.item.name}-${i}`} className={`flex items-center gap-2 px-3 py-2.5 ${r.removed ? "opacity-40" : ""}`}>
-                <span className="min-w-0 flex-1">
+              <li key={`${r.item.name}-${i}`} className="flex items-center gap-2 px-3 py-2.5">
+                <span className={`min-w-0 flex-1 ${r.removed ? "opacity-40" : ""}`}>
                   <span className={`block truncate text-sm font-medium text-gray-900 dark:text-gray-100 ${r.removed ? "line-through" : ""}`}>{r.item.name}</span>
                   <span className="block text-xs text-gray-500 dark:text-gray-400">
                     {n.calories ?? 0} kcal · {n.protein ?? 0} g protein
@@ -60,7 +60,7 @@ export default function MealBreakdown({ rows, onChange }) {
                 )}
                 <button type="button" aria-label={r.removed ? `Put back ${r.item.name}` : `Remove ${r.item.name}`}
                   onClick={() => update(i, { removed: !r.removed })}
-                  className="grid h-7 w-7 place-items-center rounded-full text-gray-400 hover:text-gray-700">
+                  className={`grid h-7 w-7 place-items-center rounded-full ${r.removed ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" : "text-gray-400 hover:text-gray-700"}`}>
                   {r.removed ? <Plus size={14} /> : <X size={14} />}
                 </button>
               </li>
