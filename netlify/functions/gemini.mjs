@@ -8,6 +8,7 @@ import { generate, hasAI } from '../lib/ai.mjs';
 import { mealIdeas, missFixes, fixesRequest } from '../lib/advice.mjs';
 
 const MAX_IMAGES = 3;
+const MAX_ITEMS = 8; // foods in one search; longer lists are the AI guessing
 const MAX_IMAGE_BASE64 = 1_500_000; // per photo (~1.1 MB); body limit is 6 MB
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const IMAGES = ['badfats.webp', 'calorie.webp', 'carbs.webp', 'fiber.webp', 'goodfats.jpg', 'minerals.jpg', 'protein.webp', 'vitamins.webp'];
@@ -46,6 +47,32 @@ ${jsonTemplate}
 
 Output: strictly a JSON array of 3 objects: [{"name": "...", "image": "...", "nutrition": {...}, "per100g": {...}, "unitGrams": {...}, "defaultUnit": "..."}, ...]
 All nutrition values must be integers. Use kcal for calories, grams (g) for all other values. JSON only, no extra text.`;
+
+// One object per food in a search that named several ("2 rotis, dal and rice").
+const itemsPrompt = (text, foods) => `
+Someone logged this meal: "${text}".
+The app's rough guess at the separate foods: ${JSON.stringify(foods)}. It is only a hint: it may have missed a split ("rice and mixed veg" is two foods) or split a single dish.
+Rules:
+1. Return ONE object per food actually eaten, in the order they were written. A single dish gives a single object.
+2. Correct the split if it is wrong: merge parts that are really one dish ("sweet and sour chicken"), and separate any food that was missed. Never invent a food that was not mentioned.
+3. "name" is the dish name only, never the amount ("Roti", not "2 rotis").
+4. "quantity" and "unit" are the amount eaten. Use what was written; when no amount was given, use the usual single serving in India.
+5. "unit" is one of: "piece", "bowl", "plate", "cup", "g", "ml".
+6. "nutrition" is for that food at that quantity and unit, not for the whole meal.
+7. "per100g" is the same food per 100 g (or 100 ml for drinks).
+8. "unitGrams" is the typical weight in grams of ONE bowl (~250 ml katori), ONE piece, ONE plate and ONE cup (~240 ml) of this food, as eaten in India.
+9. "defaultUnit" is the most natural way to count this food.
+
+For each food, include:
+- name (string)
+- quantity (number), unit (string)
+- image (string): one of these file names ${JSON.stringify(IMAGES)}
+- nutrition and per100g (objects in this format):
+${jsonTemplate}
+- unitGrams: {"bowl": int, "piece": int, "plate": int, "cup": int}
+- defaultUnit: "piece" | "bowl" | "plate" | "cup"
+
+Output: strictly a JSON array, one object per food, at most ${MAX_ITEMS}. All nutrition values must be integers. Use kcal for calories and grams (g) for everything else. JSON only, no extra text.`;
 
 const nutritionPrompt = (serving) => `
 Give a nutrition breakdown for the following serving: "${serving}".
@@ -90,10 +117,14 @@ export default async (req, context) => {
   const dish = clean(body?.dish);
   const quantity = clean(body?.quantity, 10) || '1';
   const unit = clean(body?.unit, 20) || 'bowl';
+  // A multi-food search sends the whole sentence plus the app's own split of it.
+  const text = clean(body?.text, 300);
+  const foods = (Array.isArray(body?.foods) ? body.foods : []).slice(0, MAX_ITEMS).map((f) => clean(f, 80)).filter(Boolean);
 
-  if (!['suggestions', 'nutrition'].includes(kind)) return json(400, { error: 'Unknown kind' });
-  if (!dish && !images.length) return json(400, { error: 'Provide a dish or a photo' });
+  if (!['suggestions', 'nutrition', 'items'].includes(kind)) return json(400, { error: 'Unknown kind' });
+  if (kind !== 'items' && !dish && !images.length) return json(400, { error: 'Provide a dish or a photo' });
   if (kind === 'nutrition' && !dish) return json(400, { error: 'Provide a dish' });
+  if (kind === 'items' && !text && !foods.length) return json(400, { error: 'Provide the meal text' });
   if (images.length > MAX_IMAGES) return json(400, { error: `Up to ${MAX_IMAGES} photos per search` });
   for (const image of images) {
     if (!ALLOWED_IMAGE_TYPES.includes(image?.mimeType)) return json(400, { error: 'Unsupported image type' });
@@ -101,7 +132,10 @@ export default async (req, context) => {
   }
 
   const serving = dish ? describeServing(quantity, unit, dish) : '';
-  const parts = [{ text: kind === 'nutrition' ? nutritionPrompt(serving) : suggestionsPrompt(dish, serving) }];
+  const prompt = kind === 'items' ? itemsPrompt(text || foods.join(', '), foods)
+    : kind === 'nutrition' ? nutritionPrompt(serving)
+    : suggestionsPrompt(dish, serving);
+  const parts = [{ text: prompt }];
   if (kind === 'suggestions') {
     for (const image of images) parts.push({ inlineData: { data: image.data, mimeType: image.mimeType } });
   }
@@ -110,6 +144,7 @@ export default async (req, context) => {
   // Suggestions carry per-100 g data, so they're cached by dish alone and the
   // app rescales them for any amount. Bump the version when prompts change.
   const cacheParts = images.length ? null
+    : kind === 'items' ? ['v3', kind, (text || foods.join(', ')).toLowerCase()]
     : kind === 'suggestions' ? ['v3', kind, dish.toLowerCase()]
     : ['v3', kind, dish, quantity, unit];
   if (cacheParts) {
@@ -132,6 +167,16 @@ export default async (req, context) => {
   const parsed = await generate({ parts, parse: extractJsonFromText, label: kind });
   if (!parsed) return json(502, { error: 'AI service unavailable, please try again' });
   let result = parsed;
+  if (kind === 'items' && Array.isArray(parsed)) {
+    // Each food carries its own amount, so it can be logged as its own entry.
+    result = parsed.slice(0, MAX_ITEMS).map(({ per100g, unitGrams, defaultUnit, quantity: q, unit: u, ...rest }) => ({
+      ...rest,
+      baseQuantity: Number(q) > 0 ? Number(q) : 1,
+      baseUnit: clean(u, 20) || 'bowl',
+      ...cleanPortionData({ per100g, unitGrams, defaultUnit }),
+    }));
+    await catalogPut(result).catch((err) => console.warn('Catalogue write failed:', err.message));
+  }
   if (kind === 'suggestions' && Array.isArray(parsed)) {
     // Record the serving these numbers are for, keep only valid portion data,
     // and add the dishes to the shared catalogue.

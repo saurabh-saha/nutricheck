@@ -110,6 +110,29 @@ export default function CalorieFinder() {
     })
   }
 
+  // A search that named several foods: each is its own entry, one toast for all.
+  const handleAddMany = async (entries, date, meal) => {
+    let added = 0
+    for (const entry of entries) {
+      await handleAddEntry({
+        ...entry, photos: [], meal, selectedDate: date, setHistory,
+        onSuccess: () => { added += 1 },
+      })
+    }
+    if (!added) {
+      toast({ title: "Couldn't add those", description: 'Please try again.', variant: 'destructive' })
+      return
+    }
+    const sum = (key) => entries.reduce((t, e) => t + (Number(e.nutrition?.[key]) || 0), 0)
+    setResult(Object.fromEntries(['calories', 'protein', 'carbs', 'fat', 'fiber'].map((k) => [k, sum(k)])))
+    setAdded(meal)
+    toast({
+      title: date === getTodayDate() ? `✅ ${added} foods added to today` : `✅ ${added} foods added`,
+      description: entries.map((e) => e.dish).join(', '),
+    })
+    scrollToResult()
+  }
+
   return (
     <Layout>
       <div className="flex items-center justify-between gap-3">
@@ -125,6 +148,7 @@ export default function CalorieFinder() {
         initial={landing}
         onPreview={handlePreview}
         onSelect={handleAddFromHome}
+        onSelectMany={handleAddMany}
         onClose={() => {}}
         meal={meal}
         onMealChange={setMeal}

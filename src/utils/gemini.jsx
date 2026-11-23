@@ -93,6 +93,23 @@ export const getDishSuggestionsFromGemini = async (dish, quantity, unit, photos,
   }
 };
 
+// One entry per food in a search that named several ("2 rotis, dal and rice").
+// `foods` is the app's own split of `text`; the AI confirms or corrects it.
+// Throws like getDishSuggestionsFromGemini (user-facing message + `transient`).
+export const getMealBreakdownFromGemini = async (text, foods, { onAttempt } = {}) => {
+  try {
+    const result = await withRetries(() => callGemini({ kind: 'items', text, foods }), onAttempt);
+    return Array.isArray(result) ? result : [];
+  } catch (err) {
+    console.error('Gemini error:', err);
+    const transient = isTransient(err);
+    const out = new Error(transient ? 'The AI is busy right now. Please try again in a moment.' : err.message);
+    out.transient = transient;
+    out.status = err.status;
+    throw out;
+  }
+};
+
 // 3 ideas for the coming meal, from the day so far. Returns [] if the AI is unavailable.
 // payload: { meal, eaten, targets, usual: [names], today: [names] }
 export const getMealIdeas = async (payload) => {
