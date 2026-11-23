@@ -223,6 +223,26 @@ export async function emailFor({ user, history, bucket, today, hour, advice = nu
   return buildEmail({ ...base, ideas, fixes, tip });
 }
 
+// One email per person, per day, per bucket. `create()` fails if the marker is
+// already there, so a second run of the same schedule (Netlify retries a
+// scheduled function, a redeploy fires it again) sends nothing. The marker is
+// removed if the send itself fails, so the next run can still deliver.
+const reminderMark = (db, uid, today, bucketName) =>
+  db.collection('users').doc(uid).collection('reminderLog').doc(`${today}-${bucketName}`);
+
+const claimSend = async (db, uid, today, bucketName) => {
+  try {
+    await reminderMark(db, uid, today, bucketName).create({ sentAt: new Date().toISOString() });
+    return true;
+  } catch (err) {
+    if (err?.code === 6 || /ALREADY_EXISTS|already exists/i.test(err?.message || '')) return false;
+    throw err;
+  }
+};
+
+const releaseSend = (db, uid, today, bucketName) =>
+  reminderMark(db, uid, today, bucketName).delete().catch(() => {});
+
 /**
  * @param db      Firestore (firebase-admin) instance
  * @param send    async (to, subject, html) => void
@@ -241,36 +261,52 @@ export async function runReminders({ db, send, advice = null, now = new Date(), 
   const users = await db.collection('users').get();
 
   const recipients = [];
+  const seenEmails = new Set();
   for (const userDoc of users.docs) {
     try {
       const user = userDoc.data() || {};
       const email = user.authInfo?.email;
       if (!email || user.reminders?.email === false) continue;
+      // Two user docs can share an address (e.g. Google and password sign-in).
+      const key = email.trim().toLowerCase();
+      if (seenEmails.has(key)) continue;
       const history = await loadHistory(db, userDoc.id);
       const entries = history.filter((e) => e.date === day);
-      if (bucket.shouldSend({ entries, targetCalories: user.recommendedIntake?.calories })) recipients.push({ email, user, history });
+      if (bucket.shouldSend({ entries, targetCalories: user.recommendedIntake?.calories })) {
+        seenEmails.add(key);
+        recipients.push({ uid: userDoc.id, email, user, history });
+      }
     } catch (err) {
       console.error(`Reminder check failed for ${userDoc.id}:`, err.message);
     }
   }
 
   let sent = 0;
+  let skipped = 0;
   if (!dryRun) {
     const aiUntil = Date.now() + AI_BUDGET_MS;
     const queue = [...recipients];
     const worker = async () => {
       for (let r = queue.shift(); r; r = queue.shift()) {
+        let claimed = false;
         try {
+          claimed = await claimSend(db, r.uid, today, bucketName);
+          if (!claimed) {
+            skipped++;
+            console.log(`Reminder already sent to ${r.uid} for ${today} ${bucketName}`);
+            continue;
+          }
           const useAI = advice && Date.now() < aiUntil ? advice : null;
           const { subject, html } = await emailFor({ user: r.user, history: r.history, bucket: bucketName, today, hour, advice: useAI });
           await send(r.email, subject, html);
           sent++;
         } catch (err) {
+          if (claimed) await releaseSend(db, r.uid, today, bucketName);
           console.error('Reminder email failed:', err.message);
         }
       }
     };
     await Promise.all(Array.from({ length: CONCURRENCY }, worker));
   }
-  return { bucket: bucketName, day, users: users.size, eligible: recipients.length, sent, dryRun };
+  return { bucket: bucketName, day, users: users.size, eligible: recipients.length, sent, skipped, dryRun };
 }
