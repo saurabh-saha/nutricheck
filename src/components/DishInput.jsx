@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react"
 import { Sunrise, Sun, Cookie, Moon, Check, RotateCcw, Plus, ChevronUp } from "lucide-react"
-import { getDishSuggestionsFromGemini } from '../utils/gemini.jsx'
+import { getDishSuggestionsFromGemini, getMealBreakdownFromGemini } from '../utils/gemini.jsx'
 import { MEALS, defaultMealForNow } from "../utils/nutritionTracker"
 import { UNITS, unitInfo, cleanDishLabel, isMeasure, parseFoodQuery, inferUnit, nutritionFor } from "../utils/units"
 import { favoriteKey } from "../utils/favorites"
@@ -10,6 +10,8 @@ import FadeScale from "./ui/FadeScale";
 import { toast } from "../hooks/use-toast";
 import DishComposer, { MIN_QUERY } from "./DishComposer";
 import PortionPicker from "./PortionPicker";
+import MealBreakdown from "./MealBreakdown";
+import { isMultiFood, splitFoodQuery, breakdownTotal } from "../utils/multiFood";
 
 const MEAL_ICONS = { breakfast: Sunrise, lunch: Sun, snack: Cookie, dinner: Moon };
 // Shown in turn while the AI works, so the wait feels alive.
@@ -58,7 +60,7 @@ const portionData = (item) => ({
  * - compact (home page): amount, meal and the action bar appear only once
  *   there's something to look up or add.
  */
-export default function DishInput({ onSelect, onClose, selectedDate, tracking = false, quickAdd = null, initial = null, onPreview = null, compact = false, meal: mealProp, onMealChange, inputRef: inputRefProp, prefill = null }) {
+export default function DishInput({ onSelect, onSelectMany = null, onClose, selectedDate, tracking = false, quickAdd = null, initial = null, onPreview = null, compact = false, meal: mealProp, onMealChange, inputRef: inputRefProp, prefill = null }) {
     // `initial` (home page): { dish, quantity, unit, photoUrl, results, note, autoSearch }
     const [dish, setDish] = useState(initial?.dish ?? "");
     const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
@@ -82,6 +84,9 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
     const [catalog, setCatalog] = useState([]);
     const [searchedFor, setSearchedFor] = useState(initial?.results ? { food: (initial.dish || "").toLowerCase(), photos: null } : null);
     const [closing, setClosing] = useState(false);
+    // A search that named several foods: [{ item, quantity, unit, removed }] and the text it came from.
+    const [breakdown, setBreakdown] = useState(null);
+    const [breakdownFor, setBreakdownFor] = useState("");
     const ownInputRef = useRef(null);
     const textInputRef = inputRefProp ?? ownInputRef;
     const latestRequestRef = useRef(0);
@@ -105,7 +110,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
     // Dishes the app already knows (shared catalogue), for the dropdown. No AI involved.
     useEffect(() => {
       const q = parseFoodQuery(dish).food.trim();
-      if (q.length < MIN_QUERY) { setCatalog([]); return; }
+      if (q.length < MIN_QUERY || isMultiFood(dish)) { setCatalog([]); return; }
       const ctrl = new AbortController();
       const t = setTimeout(() => {
         fetch(`/.netlify/functions/foods?q=${encodeURIComponent(q)}`, { signal: ctrl.signal })
@@ -120,6 +125,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
     // "2 eggs" -> 2 pieces, "200g paneer" -> 200 g, "tea" -> cup.
     const changeDish = (text) => {
         setDish(text);
+        if (breakdown && text.trim() !== breakdownFor) setBreakdown(null);
         if (amountTouched) return;
         const p = parseFoodQuery(text);
         // A new dish starts from its own amount ("2 eggs" -> 2), otherwise 1.
@@ -168,6 +174,8 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
 
     const handleSearch = async () => {
         if (!canSearch || cooldownLeft > 0) return;
+        if (!photos.length && isMultiFood(dish)) return handleBreakdownSearch();
+        setBreakdown(null);
         // Use the amount typed into the box ("2 eggs"), and search for the food alone.
         const p = parseFoodQuery(dish);
         const food = p.food;
@@ -212,6 +220,58 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
         // Nothing told us the unit: use the AI's natural unit for this dish.
         const aiUnit = items[0]?.defaultUnit;
         if (!amountTouched && !p.unit && !inferred && UNIT_KEYS.has(aiUnit)) setUnit(aiUnit);
+    };
+
+    // "2 rotis, dal and a bowl of rice": one AI call, one row per food.
+    const handleBreakdownSearch = async () => {
+        const text = dish.trim();
+        const requestId = ++latestRequestRef.current;
+        setIsLoading(true);
+        setPicked(null);
+        setResult(null);
+        setNote("");
+        let items = [];
+        try {
+            items = await getMealBreakdownFromGemini(text, splitFoodQuery(text), {
+                onAttempt: (n, max) => { if (requestId === latestRequestRef.current) setAttempt({ n, max }); },
+            });
+            failStreakRef.current = 0;
+        } catch (err) {
+            if (requestId === latestRequestRef.current) {
+                if (err.transient) {
+                    failStreakRef.current += 1;
+                    setCooldownUntil(Date.now() + Math.min(60, 5 * 2 ** (failStreakRef.current - 1)) * 1000);
+                    toast({ title: "Couldn't get nutrition", description: err.message, variant: "destructive" });
+                } else {
+                    toast({ title: "Search not available", description: err.message || "Please try again.", variant: "destructive" });
+                }
+            }
+        }
+        if (requestId !== latestRequestRef.current) return;
+        setIsLoading(false);
+        setAttempt(null);
+        if (!Array.isArray(items) || !items.length) return;
+        setBreakdown(items.map((item) => ({ item, quantity: item.baseQuantity, unit: item.baseUnit, removed: false })));
+        setBreakdownFor(text);
+    };
+
+    // Log every food still ticked, each as its own entry.
+    const handleAddBreakdown = () => {
+        const rows = breakdown.filter((r) => !r.removed && nutritionFor(r.item, r.quantity, r.unit));
+        if (!rows.length) return;
+        const entries = rows.map((r) => ({
+            dish: r.item.name, quantity: r.quantity, unit: r.unit,
+            nutrition: nutritionFor(r.item, r.quantity, r.unit),
+            thumb: r.item.imageUrl || null, extras: portionData(r.item),
+        }));
+        setClosing(true);
+        setTimeout(() => {
+            if (onSelectMany) onSelectMany(entries, selectedDate, meal);
+            else entries.forEach((e) => onSelect?.(e.dish, e.quantity, e.unit, e.nutrition, [], selectedDate, meal, e.thumb, e.extras));
+            setDish(""); setQuantity(1); setUnit("bowl"); setAmountTouched(false); setPhotos([]);
+            setResult(null); setPicked(null); setBreakdown(null); setClosing(false);
+            onClose?.();
+        }, 250);
     };
 
     // A meal idea tapped on the home page: fill the form with it, ready to add.
@@ -273,6 +333,9 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
 
     const portion = unitWord(quantity, unit);
     const showDetails = !compact || Boolean(dish.trim()) || photos.length > 0 || Boolean(picked) || isLoading;
+    const showBreakdown = Boolean(breakdown) && dish.trim() === breakdownFor;
+    const breakdownKcal = showBreakdown ? breakdownTotal(breakdown).calories ?? 0 : 0;
+    const breakdownCount = showBreakdown ? breakdown.filter((r) => !r.removed).length : 0;
 
     // Dropdown: your recent foods, then dishes the app already knows.
     const suggestions = (() => {
@@ -321,7 +384,7 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                 />
 
                 {/* 2. Amount: worked out for you; edit it in place */}
-                {showDetails && <div className="rounded-2xl bg-gray-100 dark:bg-gray-800">
+                {showDetails && !showBreakdown && <div className="rounded-2xl bg-gray-100 dark:bg-gray-800">
                   <button type="button" onClick={() => setAmountOpen(o => !o)} aria-expanded={amountOpen}
                     className="flex w-full items-center justify-between px-4 py-3 text-left">
                     <span className="text-sm text-gray-600 dark:text-gray-300">Amount</span>
@@ -364,7 +427,9 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                   </div>
                 )}
 
-                {resultsMatchText && (
+                {showBreakdown && <MealBreakdown rows={breakdown} onChange={setBreakdown} />}
+
+                {resultsMatchText && !showBreakdown && (
                     <div className="space-y-2">
                         {note
                           ? <p className="rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:bg-blue-900/30 dark:text-blue-100">{note}</p>
@@ -413,7 +478,12 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
 
                 {/* Action bar: stays at the bottom of the sheet */}
                 {showDetails && <div className="sticky bottom-0 -mx-4 mt-auto border-t border-gray-200 bg-gray-50/95 px-4 pb-1 pt-3 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 sm:-mx-6 sm:px-6">
-                    {pickValid ? (
+                    {showBreakdown ? (
+                      <button type="button" onClick={handleAddBreakdown} disabled={!breakdownCount}
+                        className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-blue-600 px-4 py-3.5 text-base font-semibold text-white active:scale-[0.98] disabled:opacity-50">
+                        <Plus size={18} /> Add {breakdownCount} {breakdownCount === 1 ? "food" : "foods"} to {MEALS.find(m => m.key === meal)?.label.toLowerCase() ?? "log"} · {breakdownKcal} kcal
+                      </button>
+                    ) : pickValid ? (
                       <div className="space-y-2">
                         <p className="truncate text-sm text-gray-700 dark:text-gray-200">
                           <b>{portion}</b> of {picked.item.name}
@@ -460,8 +530,8 @@ export default function DishInput({ onSelect, onClose, selectedDate, tracking = 
                             : cooldownLeft > 0 ? `Try again in ${cooldownLeft}s`
                             : canSearch ? (
                               <span className="flex flex-col items-center leading-tight">
-                                <span>{dishLower ? "✨ Show calories & protein" : "📸 Analyse my plate"}</span>
-                                {dishLower && <span className="mt-0.5 max-w-full truncate text-xs font-normal text-blue-100">{portion} · {parseFoodQuery(dish).food.trim()}</span>}
+                                <span>{dishLower ? (isMultiFood(dish) ? `✨ Split into ${splitFoodQuery(dish).length} foods` : "✨ Show calories & protein") : "📸 Analyse my plate"}</span>
+                                {dishLower && !isMultiFood(dish) && <span className="mt-0.5 max-w-full truncate text-xs font-normal text-blue-100">{portion} · {parseFoodQuery(dish).food.trim()}</span>}
                               </span>
                             )
                             : queryLength > 0 ? "Keep typing…" : "Type a dish or snap a photo"}
