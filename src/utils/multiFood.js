@@ -47,8 +47,18 @@ export function splitFoodQuery(text) {
     .filter((s) => s && !FILLER.test(s) && /[a-z]/i.test(s));
 }
 
-/** True when a search is worth breaking into separate foods. */
+/** True when the text itself clearly lists several foods (commas, amounts). */
 export const isMultiFood = (text) => splitFoodQuery(text).length > 1;
+
+// Words that join foods but also sit inside dish names ("mac and cheese").
+const JOINER = /\s(?:and|aur|with|plus|n)\s/i;
+
+/**
+ * True when a search might be several foods and the AI should decide.
+ * It is cheap to be wrong here: the same single AI call comes back with one
+ * row when the text was one dish, and the AI merges "sweet and sour chicken".
+ */
+export const mayBeMultiFood = (text) => isMultiFood(text) || JOINER.test(String(text || ''));
 
 /**
  * Each food with the amount the person typed, ready for the AI:

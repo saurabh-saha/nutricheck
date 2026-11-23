@@ -11,7 +11,7 @@ import { toast } from "../hooks/use-toast";
 import DishComposer, { MIN_QUERY } from "./DishComposer";
 import PortionPicker from "./PortionPicker";
 import MealBreakdown from "./MealBreakdown";
-import { isMultiFood, splitFoodQuery, breakdownTotal } from "../utils/multiFood";
+import { isMultiFood, mayBeMultiFood, splitFoodQuery, breakdownTotal } from "../utils/multiFood";
 
 const MEAL_ICONS = { breakfast: Sunrise, lunch: Sun, snack: Cookie, dinner: Moon };
 // Shown in turn while the AI works, so the wait feels alive.
@@ -174,7 +174,7 @@ export default function DishInput({ onSelect, onSelectMany = null, onClose, sele
 
     const handleSearch = async () => {
         if (!canSearch || cooldownLeft > 0) return;
-        if (!photos.length && isMultiFood(dish)) return handleBreakdownSearch();
+        if (!photos.length && mayBeMultiFood(dish)) return handleBreakdownSearch();
         setBreakdown(null);
         // Use the amount typed into the box ("2 eggs"), and search for the food alone.
         const p = parseFoodQuery(dish);
@@ -531,7 +531,7 @@ export default function DishInput({ onSelect, onSelectMany = null, onClose, sele
                             : canSearch ? (
                               <span className="flex flex-col items-center leading-tight">
                                 <span>{dishLower ? (isMultiFood(dish) ? `✨ Split into ${splitFoodQuery(dish).length} foods` : "✨ Show calories & protein") : "📸 Analyse my plate"}</span>
-                                {dishLower && !isMultiFood(dish) && <span className="mt-0.5 max-w-full truncate text-xs font-normal text-blue-100">{portion} · {parseFoodQuery(dish).food.trim()}</span>}
+                                {dishLower && !mayBeMultiFood(dish) && <span className="mt-0.5 max-w-full truncate text-xs font-normal text-blue-100">{portion} · {parseFoodQuery(dish).food.trim()}</span>}
                               </span>
                             )
                             : queryLength > 0 ? "Keep typing…" : "Type a dish or snap a photo"}

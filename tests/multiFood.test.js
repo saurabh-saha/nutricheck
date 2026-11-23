@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { splitFoodQuery, isMultiFood, foodsInQuery, breakdownTotal, amountLabel } from '../src/utils/multiFood.js'
+import { splitFoodQuery, isMultiFood, mayBeMultiFood, foodsInQuery, breakdownTotal, amountLabel } from '../src/utils/multiFood.js'
 
 describe('splitting a search into foods', () => {
   test('one dish stays one dish', () => {
@@ -35,6 +35,21 @@ describe('splitting a search into foods', () => {
       { text: '2 rotis', quantity: 2, unit: null, food: 'rotis' },
       { text: '1 bowl rice', quantity: 1, unit: 'bowl', food: 'rice' },
     ])
+  })
+})
+
+describe('when the AI should decide', () => {
+  test('a joining word hands the search to the AI', () => {
+    expect(mayBeMultiFood('chicken, rice and mixed veg')).toBe(true)
+    expect(mayBeMultiFood('dal and rice')).toBe(true)
+    expect(mayBeMultiFood('chicken with rice')).toBe(true)
+    expect(mayBeMultiFood('mac and cheese')).toBe(true) // the AI merges it back to one dish
+  })
+  test('a plain dish name stays a single dish', () => {
+    expect(mayBeMultiFood('chicken rice')).toBe(false)
+    expect(mayBeMultiFood('masala dosa')).toBe(false)
+    expect(mayBeMultiFood('1 bowl of poha')).toBe(false)
+    expect(mayBeMultiFood('brandy')).toBe(false) // "and" inside a word is not a joiner
   })
 })
 

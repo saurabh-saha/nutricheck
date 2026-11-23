@@ -51,9 +51,9 @@ All nutrition values must be integers. Use kcal for calories, grams (g) for all 
 // One object per food in a search that named several ("2 rotis, dal and rice").
 const itemsPrompt = (text, foods) => `
 Someone logged this meal: "${text}".
-It looks like these separate foods: ${JSON.stringify(foods)}.
+The app's rough guess at the separate foods: ${JSON.stringify(foods)}. It is only a hint: it may have missed a split ("rice and mixed veg" is two foods) or split a single dish.
 Rules:
-1. Return ONE object per food actually eaten, in the order they were written.
+1. Return ONE object per food actually eaten, in the order they were written. A single dish gives a single object.
 2. Correct the split if it is wrong: merge parts that are really one dish ("sweet and sour chicken"), and separate any food that was missed. Never invent a food that was not mentioned.
 3. "name" is the dish name only, never the amount ("Roti", not "2 rotis").
 4. "quantity" and "unit" are the amount eaten. Use what was written; when no amount was given, use the usual single serving in India.
@@ -124,7 +124,7 @@ export default async (req, context) => {
   if (!['suggestions', 'nutrition', 'items'].includes(kind)) return json(400, { error: 'Unknown kind' });
   if (kind !== 'items' && !dish && !images.length) return json(400, { error: 'Provide a dish or a photo' });
   if (kind === 'nutrition' && !dish) return json(400, { error: 'Provide a dish' });
-  if (kind === 'items' && foods.length < 2) return json(400, { error: 'Provide at least two foods' });
+  if (kind === 'items' && !text && !foods.length) return json(400, { error: 'Provide the meal text' });
   if (images.length > MAX_IMAGES) return json(400, { error: `Up to ${MAX_IMAGES} photos per search` });
   for (const image of images) {
     if (!ALLOWED_IMAGE_TYPES.includes(image?.mimeType)) return json(400, { error: 'Unsupported image type' });
