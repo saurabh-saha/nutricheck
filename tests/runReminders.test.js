@@ -15,7 +15,9 @@ const makeDb = (users) => {
         doc: (uid) => ({
           get: async () => ({ data: () => users[uid].doc }),
           collection: (sub) => ({
-            get: async () => snap((users[uid].history || []).map((d) => ({ data: () => d }))),
+            get: async () => sub === 'reminderLog'
+              ? snap([...marks].filter((m) => m.startsWith(`${uid}/reminderLog/`)).map((m) => ({ id: m.split('/').pop(), data: () => ({}) })))
+              : snap((users[uid].history || []).map((d) => ({ data: () => d }))),
             doc: (key) => ({
               create: async () => {
                 const full = `${uid}/${sub}/${key}`
@@ -36,7 +38,9 @@ const makeDb = (users) => {
 }
 
 const evening = new Date('2026-11-24T14:30:00Z') // 20:00 IST
-const user = (email) => ({ doc: { authInfo: { email }, recommendedIntake: { calories: 2000 } }, history: [] })
+const entry = (date) => ({ date, dish: 'dal', meal: 'lunch', nutrition: { calories: 100 } })
+// Logged yesterday: still engaged, so the evening reminder applies.
+const user = (email) => ({ doc: { authInfo: { email }, recommendedIntake: { calories: 2000 } }, history: [entry('2026-11-23')] })
 
 describe('runReminders delivers once', () => {
   test('a second run of the same schedule sends nothing', async () => {

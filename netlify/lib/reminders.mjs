@@ -49,6 +49,48 @@ const shiftDay = (day, offset) => {
   return d.toISOString().slice(0, 10);
 };
 
+// ---------- who gets what, and how often ----------
+// Daily nudges suit someone who logs; they are noise for someone who stopped,
+// or never started. Segments come from the last day they logged anything.
+export const ACTIVE_DAYS = 3;   // logged within this many days: still engaged
+export const LAPSED_DAYS = 14;  // logged within this many days: drifted away
+// Days to wait after the Nth reminder that got no log. Past the end, we stop
+// until they log again (which resets the count).
+export const GAPS_AFTER_UNANSWERED = [0, 3, 7, 14];
+
+export const daysBetween = (from, to) =>
+  Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86400000);
+
+/** { segment: 'never' | 'active' | 'lapsed' | 'dormant', lastLog, daysSince } */
+export function segmentOf({ history, today }) {
+  const lastLog = history.map((e) => e.date).filter((d) => d && d <= today).sort().pop() || null;
+  if (!lastLog) return { segment: 'never', lastLog: null, daysSince: null };
+  const daysSince = daysBetween(lastLog, today);
+  const segment = daysSince <= ACTIVE_DAYS ? 'active' : daysSince <= LAPSED_DAYS ? 'lapsed' : 'dormant';
+  return { segment, lastLog, daysSince };
+}
+
+/**
+ * Whether this person should get a reminder now, on top of the morning/evening
+ * rule. sentDays: the days we already emailed them (from their reminderLog).
+ * createdDay: the day they signed up, if known.
+ */
+export function cadenceAllows({ segment, lastLog, bucketName, today, sentDays = [], createdDay = null }) {
+  if (segment === 'active') return { send: true };
+  // Everyone else gets at most the morning one: "today's total is low" means nothing to them.
+  if (bucketName !== 'morning') return { send: false, reason: 'evening is for active users' };
+  if (segment === 'never' && createdDay && daysBetween(createdDay, today) < 1) {
+    return { send: false, reason: 'just signed up' };
+  }
+  const unanswered = sentDays.filter((d) => !lastLog || d > lastLog).sort();
+  if (unanswered.length >= GAPS_AFTER_UNANSWERED.length) return { send: false, reason: 'stopped until they log again' };
+  if (unanswered.length) {
+    const wait = GAPS_AFTER_UNANSWERED[unanswered.length];
+    if (daysBetween(unanswered[unanswered.length - 1], today) < wait) return { send: false, reason: `waiting ${wait} days` };
+  }
+  return { send: true };
+}
+
 // ---------- email content ----------
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const round = (n) => Math.round(Number(n) || 0);
@@ -103,7 +145,9 @@ export function buildEmail({ bucket, name, today, hour, history, intake: rawInta
   const intake = { ...DEFAULT_INTAKE, ...(rawIntake || {}) };
   const todayEntries = history.filter((e) => e.date === today);
   const eaten = eatenOf(todayEntries);
-  const misses = criticalMisses(history, intake, new Date(`${today}T12:00:00`));
+  const { segment, daysSince } = segmentOf({ history, today });
+  // "Running low on protein this week" only means something to someone still logging.
+  const misses = segment === 'active' ? criticalMisses(history, intake, new Date(`${today}T12:00:00`)) : [];
   const meal = ideasInput({ history, day: today, hour, intake })?.meal ?? null;
   const mealLabel = MEAL_LABEL[meal] || 'your next meal';
   const logged = todayEntries.length > 0;
@@ -123,6 +167,12 @@ export function buildEmail({ bucket, name, today, hour, history, intake: rawInta
   } else if (bucket === 'evening') {
     subject = ideas.length ? `Nothing logged today? ${ideas.length} easy ideas for ${mealLabel}` : 'Nothing logged today yet';
     intro = 'Nothing\'s logged for today yet. Add what you ate in a few seconds (just type it, like "2 rotis and dal"), or pick an idea below.';
+  } else if (segment === 'never') {
+    subject = 'Log your first meal in 10 seconds';
+    intro = 'Welcome to NutriCheck! Just type what you ate, like "2 rotis and dal", and it works out the calories and protein for you. No weighing, no searching.';
+  } else if (segment !== 'active') {
+    subject = `It's been ${daysSince} days: pick up with one meal`;
+    intro = `It's been <b>${daysSince} days</b> since your last log. No catch-up needed: log whatever you eat next and today is back on track.`;
   } else {
     subject = misses[0]
       ? `${misses[0].kind === 'low' ? `${CAP[misses[0].key]} has been low` : "You've been running over"} this week: an easy fix inside`
@@ -187,6 +237,7 @@ export function buildEmail({ bucket, name, today, hour, history, intake: rawInta
       <a href="${esc(link(bucket, 'button'))}" style="display:inline-block;background:#2563eb;color:#ffffff;padding:12px 24px;border-radius:12px;text-decoration:none;font-weight:bold;font-size:15px;">${bucket === 'evening' && logged ? 'Log the rest of today' : 'Open NutriCheck'}</a>
     </div>
     <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;text-align:center;line-height:1.5;">
+      ${segment === 'active' ? '' : "We'll only send a few of these, then stop until you're back.<br/>"}
       Don't want these? <a href="${APP_URL}/settings" style="color:#64748b;">Turn off reminders in Settings</a>.<br/>
       NutriCheck gives estimates, not medical advice.
     </p>
@@ -230,15 +281,20 @@ export async function emailFor({ user, history, bucket, today, hour, advice = nu
 const reminderMark = (db, uid, today, bucketName) =>
   db.collection('users').doc(uid).collection('reminderLog').doc(`${today}-${bucketName}`);
 
-const claimSend = async (db, uid, today, bucketName) => {
+const claimSend = async (db, uid, today, bucketName, segment = null) => {
   try {
-    await reminderMark(db, uid, today, bucketName).create({ sentAt: new Date().toISOString() });
+    await reminderMark(db, uid, today, bucketName).create({ sentAt: new Date().toISOString(), segment });
     return true;
   } catch (err) {
     if (err?.code === 6 || /ALREADY_EXISTS|already exists/i.test(err?.message || '')) return false;
     throw err;
   }
 };
+
+// The days we already emailed this person (their reminderLog doc ids start with the day).
+export const loadSentDays = async (db, uid) =>
+  (await db.collection('users').doc(uid).collection('reminderLog').get()).docs
+    .map((d) => String(d.id).slice(0, 10)).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
 
 const releaseSend = (db, uid, today, bucketName) =>
   reminderMark(db, uid, today, bucketName).delete().catch(() => {});
@@ -261,6 +317,7 @@ export async function runReminders({ db, send, advice = null, now = new Date(), 
   const users = await db.collection('users').get();
 
   const recipients = [];
+  let held = 0;
   const seenEmails = new Set();
   for (const userDoc of users.docs) {
     try {
@@ -272,10 +329,17 @@ export async function runReminders({ db, send, advice = null, now = new Date(), 
       if (seenEmails.has(key)) continue;
       const history = await loadHistory(db, userDoc.id);
       const entries = history.filter((e) => e.date === day);
-      if (bucket.shouldSend({ entries, targetCalories: user.recommendedIntake?.calories })) {
-        seenEmails.add(key);
-        recipients.push({ uid: userDoc.id, email, user, history });
-      }
+      if (!bucket.shouldSend({ entries, targetCalories: user.recommendedIntake?.calories })) continue;
+      const { segment, lastLog } = segmentOf({ history, today });
+      const created = user.createdAt?.toDate?.() ?? (user.createdAt ? new Date(user.createdAt) : null);
+      const plan = cadenceAllows({
+        segment, lastLog, bucketName, today,
+        sentDays: segment === 'active' ? [] : await loadSentDays(db, userDoc.id),
+        createdDay: created && !Number.isNaN(created.getTime()) ? zonedParts(created).day : null,
+      });
+      if (!plan.send) { held++; continue; }
+      seenEmails.add(key);
+      recipients.push({ uid: userDoc.id, email, user, history, segment });
     } catch (err) {
       console.error(`Reminder check failed for ${userDoc.id}:`, err.message);
     }
@@ -290,7 +354,7 @@ export async function runReminders({ db, send, advice = null, now = new Date(), 
       for (let r = queue.shift(); r; r = queue.shift()) {
         let claimed = false;
         try {
-          claimed = await claimSend(db, r.uid, today, bucketName);
+          claimed = await claimSend(db, r.uid, today, bucketName, r.segment);
           if (!claimed) {
             skipped++;
             console.log(`Reminder already sent to ${r.uid} for ${today} ${bucketName}`);
@@ -308,5 +372,5 @@ export async function runReminders({ db, send, advice = null, now = new Date(), 
     };
     await Promise.all(Array.from({ length: CONCURRENCY }, worker));
   }
-  return { bucket: bucketName, day, users: users.size, eligible: recipients.length, sent, skipped, dryRun };
+  return { bucket: bucketName, day, users: users.size, eligible: recipients.length, held, sent, skipped, dryRun };
 }
