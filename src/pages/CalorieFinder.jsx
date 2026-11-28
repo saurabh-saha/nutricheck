@@ -2,7 +2,11 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import Layout from '../components/Layout'
 import { cleanDishLabel } from '../utils/units'
-import { handleAddEntry, getTodayDate, defaultMealForNow, getRecentDishes, refreshTrackerState, computeSummary, getDefaultIntake, streakOf } from '../utils/nutritionTracker'
+import { handleAddEntry, getTodayDate, formatDate, defaultMealForNow, getRecentDishes, refreshTrackerState, computeSummary, getDefaultIntake, streakOf } from '../utils/nutritionTracker'
+import { getExerciseEntries, deleteExercise } from '../utils/exerciseTracker'
+import { totalBurned, waysToBurn, DEFAULT_WEIGHT_KG } from '../utils/exercises'
+
+const MAX_SESSION_KCAL = 500
 import { getFavorites, addFavorite, removeFavorite } from '../utils/favorites'
 import { useIntake } from '../context/ProfileContext'
 import { toast } from '../hooks/use-toast'
@@ -10,6 +14,8 @@ import { landingSearchFrom } from '../utils/landingSearch'
 import DishInput from '../components/DishInput'
 import DateChip from '../components/DateChip'
 import DayCard from '../components/DayCard'
+import ExerciseCard from '../components/ExerciseCard'
+import AddExerciseDialog from '../components/AddExerciseDialog'
 import NutritionResult from '../components/NutritionResult'
 import WeightNudge from '../components/WeightNudge'
 import MealIdeas from '../components/MealIdeas'
@@ -28,6 +34,9 @@ export default function CalorieFinder() {
   const [favorites, setFavorites] = useState([])
   const [profile, setProfile] = useState(null)
   const [meal, setMeal] = useState(defaultMealForNow)
+  const [exercises, setExercises] = useState([])
+  const [exerciseOpen, setExerciseOpen] = useState(false)
+  const [exercisePrefill, setExercisePrefill] = useState(null)
   const inputRef = useRef(null)
   const resultRef = useRef(null)
   const { recommendedIntake } = useIntake()
@@ -43,6 +52,7 @@ export default function CalorieFinder() {
         .catch((err) => console.error("Couldn't load your log:", err))
         .finally(() => setHistoryLoaded(true))
       getFavorites().then(setFavorites).catch(() => {})
+      getExerciseEntries().then(setExercises)
       loadProfile().then(setProfile).catch(() => {})
     })
     return () => unsubscribe()
@@ -52,6 +62,41 @@ export default function CalorieFinder() {
   const dayEntries = useMemo(() => history.filter((e) => e.date === selectedDate), [history, selectedDate])
   const daySummary = useMemo(() => computeSummary(dayEntries), [dayEntries])
   const streak = useMemo(() => streakOf(history), [history])
+
+  // Exercise: the day's entries, and what it all comes to against the goal.
+  const weightKg = Number(profile?.weight) > 0 ? Number(profile.weight) : DEFAULT_WEIGHT_KG
+  const dayExercises = useMemo(() => exercises.filter((e) => e.date === selectedDate), [exercises, selectedDate])
+  const burned = useMemo(() => totalBurned(dayExercises), [dayExercises])
+  const balance = useMemo(() => {
+    if (selectedDate !== getTodayDate()) return null
+    const net = (date) => {
+      const food = history.filter((e) => e.date === date)
+      if (!food.length) return null
+      return computeSummary(food).calories - totalBurned(exercises.filter((e) => e.date === date)) - intake.calories
+    }
+    const y = new Date(); y.setDate(y.getDate() - 1)
+    const today = net(selectedDate)
+    // Exercise done today works off yesterday's overshoot too.
+    const yesterday = net(formatDate(y)) - totalBurned(exercises.filter((e) => e.date === selectedDate))
+    const [over, when] = today > 100 ? [today, 'today'] : yesterday > 150 ? [yesterday, 'yesterday'] : [0, null]
+    // A big day isn't undone in one session: suggest a realistic chunk of it.
+    const target = Math.min(over, MAX_SESSION_KCAL)
+    return over ? { over, target, when, ways: waysToBurn(target, weightKg) } : null
+  }, [history, exercises, selectedDate, intake.calories, weightKg])
+
+  const openExercise = (prefill = null) => {
+    setExercisePrefill(prefill ? { ...prefill, nonce: Date.now() } : null)
+    setExerciseOpen(true)
+  }
+  const removeExercise = async (id) => {
+    try {
+      await deleteExercise(id)
+      setExercises((list) => list.filter((e) => e.id !== id))
+    } catch (err) {
+      console.error("Couldn't remove exercise:", err)
+      toast({ title: "Couldn't remove that", variant: "destructive" })
+    }
+  }
 
   const scrollToResult = () =>
     setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
@@ -173,6 +218,25 @@ export default function CalorieFinder() {
         streak={streak}
         activeMeal={meal}
         onPickMeal={pickMeal}
+        burned={burned}
+      />
+
+      <ExerciseCard
+        entries={dayExercises}
+        burned={burned}
+        balance={balance}
+        onAdd={() => openExercise()}
+        onDelete={removeExercise}
+        onPickWay={(w) => openExercise({ exerciseId: w.exercise.id, minutes: w.minutes, intensity: w.intensity })}
+      />
+
+      <AddExerciseDialog
+        open={exerciseOpen}
+        onOpenChange={setExerciseOpen}
+        date={selectedDate}
+        weightKg={weightKg}
+        prefill={exercisePrefill}
+        onAdded={(entry) => setExercises((list) => [entry, ...list])}
       />
 
       <WeightNudge profile={profile} />
