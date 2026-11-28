@@ -38,16 +38,18 @@ const MACROS = [
  * "Your day" on the home page: progress toward the goal, which meals are logged
  * (tap one to add to it), and one way forward (the tracker, or setting a goal first).
  */
-export default function DayCard({ date, entries, summary, intake, hasGoal, streak, activeMeal, onPickMeal }) {
+export default function DayCard({ date, entries, summary, intake, hasGoal, streak, activeMeal, onPickMeal, burned = 0 }) {
   const isToday = date === getTodayDate()
   const eaten = summary.calories || 0
+  // Exercise earns calories back: burning 300 raises the day's budget by 300.
+  const budget = intake.calories + burned
   const logged = new Set(entries.map((e) => e.meal))
-  const empty = entries.length === 0
+  const empty = entries.length === 0 && burned === 0
   const pct = (key) => (intake[key] ? Math.min(100, Math.round(((summary[key] || 0) / intake[key]) * 100)) : 0)
 
   const headline = empty
     ? (isToday ? "Nothing logged yet today" : "Nothing logged that day")
-    : eaten > intake.calories ? "Over your goal, that's okay" : "Nice, keep it going"
+    : eaten > budget ? "Over your goal, that's okay" : "Nice, keep it going"
 
   return (
     <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 to-indigo-700 p-4 text-white shadow-lg">
@@ -61,10 +63,11 @@ export default function DayCard({ date, entries, summary, intake, hasGoal, strea
       </div>
 
       <div className="mt-3 flex items-center gap-4">
-        <Ring value={eaten} target={intake.calories} />
+        <Ring value={eaten} target={budget} />
         <div className="min-w-0 flex-1">
           <p className="font-semibold leading-snug">{headline}</p>
-          <p className="mt-0.5 text-sm text-white/80">{Math.round(eaten)} / {Math.round(intake.calories)} kcal</p>
+          <p className="mt-0.5 text-sm text-white/80">{Math.round(eaten)} / {Math.round(budget)} kcal</p>
+          {burned > 0 && <p className="text-xs text-white/70">Goal {Math.round(intake.calories)} + {Math.round(burned)} burned</p>}
           <div className="mt-2 space-y-1.5">
             {MACROS.map((m) => (
               <div key={m.key}>
